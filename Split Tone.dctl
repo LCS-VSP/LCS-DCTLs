@@ -1,0 +1,162 @@
+__DEVICE__ float3 apply_shadow(float3 in, float pivot, float BLK_R, float SHD_R, float BLK_G, float SHD_G, float BLK_B, float SHD_B)
+{
+
+float3 out;
+
+if(in.x < 0.0)
+{
+in.x = 0.0;
+}
+
+if(in.y < 0.0)
+{
+in.y = 0.0;
+}
+
+if(in.z < 0.0)
+{
+in.z = 0.0;
+}
+
+if(in.x > 1.0)
+{
+in.x = 1.0;
+}
+
+if(in.y > 1.0)
+{
+in.y = 1.0;
+}
+
+if(in.z > 1.0)
+{
+in.z = 1.0;
+}
+
+if (in.x <= pivot)
+{
+float r = in.x/pivot;
+out.x = (0 * _powf(1 - r,3) + 3 * BLK_R * _powf(1 - r,2) * r + 3 * SHD_R * (1 - r) * _powf(r,2) + 1 * _powf(r,3)) * pivot;
+}
+else{
+out.x = in.x;
+}
+
+if (in.y <= pivot)
+{
+float g = in.y/pivot;
+out.y = (0 * _powf(1 - g,3) + 3 * BLK_G * _powf(1 - g,2) * g + 3 * SHD_G * (1 - g) * _powf(g,2) + 1 * _powf(g,3)) * pivot;
+}
+else{
+out.y = in.y;
+}
+
+if (in.z <= pivot)
+{
+float b = in.z/pivot;
+out.z = (0 * _powf(1 - b,3) + 3 * BLK_B * _powf(1 - b,2) * b + 3 * SHD_B * (1 - b) * _powf(b,2) + 1 * _powf(b,3)) * pivot;
+}
+else{
+out.z = in.z;
+}
+
+return out;
+}
+
+__DEVICE__ float3 apply_highlight(float3 in, float pivot, float WHT_R, float HIL_R, float WHT_G, float HIL_G, float WHT_B, float HIL_B)
+{
+
+float3 out;
+
+in = 1 - in;
+pivot = 1 - pivot;
+
+
+if (in.x <= pivot)
+{
+float r = in.x/pivot;
+out.x = (0 * _powf(1 - r,3) + 3 * (1-WHT_R) * _powf(1 - r,2) * r + 3 * (1-HIL_R) * (1 - r) * _powf(r,2) + 1 * _powf(r,3)) * pivot;
+}
+else{
+out.x = in.x;
+}
+
+if (in.y <= pivot)
+{
+float g = in.y/pivot;
+out.y = (0 * _powf(1 - g,3) + 3 * (1-WHT_G) * _powf(1 - g,2) * g + 3 * (1-HIL_G) * (1 - g) * _powf(g,2) + 1 * _powf(g,3)) * pivot;
+}
+else{
+out.y = in.y;
+}
+
+if (in.z <= pivot)
+{
+float b = in.z/pivot;
+out.z = (0 * _powf(1 - b,3) + 3 * (1-WHT_B) * _powf(1 - b,2) * b + 3 * (1-HIL_B) * (1 - b) * _powf(b,2) + 1 * _powf(b,3)) * pivot;
+}
+else{
+out.z = in.z;
+}
+
+out.x = 1 - out.x;
+out.y = 1 - out.y;
+out.z = 1 - out.z;
+
+return out;
+}
+
+
+DEFINE_UI_PARAMS(pivot, Pivot, DCTLUI_SLIDER_FLOAT, .391, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(BLK_R, Black Red, DCTLUI_SLIDER_FLOAT, .333, 0.0,.666, 0.1)
+DEFINE_UI_PARAMS(SHD_R, Shadow Red, DCTLUI_SLIDER_FLOAT, .666, .333,1.0, 0.1)
+DEFINE_UI_PARAMS(BLK_G, Black Green, DCTLUI_SLIDER_FLOAT, .333, 0.0,.666, 0.1)
+DEFINE_UI_PARAMS(SHD_G, Shadow Green, DCTLUI_SLIDER_FLOAT, .666, .333,1.0, 0.1)
+DEFINE_UI_PARAMS(BLK_B, Black Blue, DCTLUI_SLIDER_FLOAT, .333, 0.0,.666, 0.1)
+DEFINE_UI_PARAMS(SHD_B, Shadow Blue, DCTLUI_SLIDER_FLOAT, .666, .333,1.0, 0.1)
+DEFINE_UI_PARAMS(HIL_R, Highlight Red, DCTLUI_SLIDER_FLOAT, .333, 0.0, .666, 0.1)
+DEFINE_UI_PARAMS(WHT_R, White Red, DCTLUI_SLIDER_FLOAT, .666, .333, 1.0, 0.1)
+DEFINE_UI_PARAMS(HIL_G, Highlight Green, DCTLUI_SLIDER_FLOAT, .333, 0.0, .666, 0.1)
+DEFINE_UI_PARAMS(WHT_G, White Green, DCTLUI_SLIDER_FLOAT, .666, .333, 1.0, 0.1)
+DEFINE_UI_PARAMS(HIL_B, Highlight Blue, DCTLUI_SLIDER_FLOAT, .333, .0.0,.666, 0.1)
+DEFINE_UI_PARAMS(WHT_B, White Blue, DCTLUI_SLIDER_FLOAT, .666, .333, 1.0, 0.1)
+DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    
+    float3 in = {p_R, p_G, p_B};
+    
+    float width = (float)p_Width;
+    float height = (float)p_Height;
+    float X = (float)p_X;
+    float Y = height - (float)p_Y;
+    float3 ramp = {X / width, X / width, X / width};
+    
+    float3 out;
+    
+    {
+    out = apply_shadow(in, pivot, BLK_R, SHD_R, BLK_G, SHD_G, BLK_B, SHD_B);
+    ramp = apply_shadow(ramp, pivot, BLK_R, SHD_R, BLK_G, SHD_G, BLK_B, SHD_B);
+    }
+    {
+    out = apply_highlight(out, pivot, WHT_R, HIL_R, WHT_G, HIL_G, WHT_B, HIL_B);
+    ramp = apply_highlight(ramp, pivot, WHT_R, HIL_R, WHT_G, HIL_G, WHT_B, HIL_B);
+    }
+
+    if (opt_showcurve == 1)
+
+    {
+
+    float overlayR = ramp.x >= (Y - 5.0f) / height && ramp.x <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayG = ramp.y >= (Y - 5.0f) / height && ramp.y <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayB = ramp.z >= (Y - 5.0f) / height && ramp.z <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+
+    out.x = overlayR == 0.0f ? out.x : overlayR;
+    out.y = overlayG == 0.0f ? out.y : overlayG;
+    out.z = overlayB == 0.0f ? out.z : overlayB;
+
+    }
+
+    return out;
+}

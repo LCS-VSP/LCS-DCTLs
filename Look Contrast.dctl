@@ -1,0 +1,191 @@
+__DEVICE__ float apply_compress (float in, float limit_white, float limit_black, float pivot, float power)
+{
+
+float out;
+
+if(in>=pivot)
+{
+
+float a = (((limit_white - 0.001) - pivot) / (1 - pivot));
+
+float b =_powf(a,-1 * power) - 1;
+
+float s = (1 - pivot) / _powf(b,1/power);
+
+float c = 1 + ((in - pivot) / s);
+
+float d = _powf(c,power);
+
+out = pivot + s *((in - pivot) / s) / _powf(d,1/power);
+}
+
+else{
+
+in = 1-in;
+pivot= 1-pivot;
+
+float a = (( -1.0*(limit_black - .999)  - pivot) / (1 - pivot));
+
+float b =_powf(a,-1 * power) - 1;
+
+float s = (1 - pivot) / _powf(b,1/power);
+
+float c = 1 + ((in - pivot) / s);
+
+float d = _powf(c,power);
+
+out = pivot + s *((in - pivot) / s) / _powf(d,1/power);
+
+out = 1-out;
+}
+
+return out;
+
+}
+
+__DEVICE__ float apply_contrast(float in, float contrast, float pivot)
+
+{
+
+float out;
+
+if(in<0.0)
+{
+in= 0.0;
+}
+
+if(in>1.0)
+{
+in= 1.0;
+}
+
+if(in<=pivot){
+
+out = _powf((in/pivot), contrast) *pivot;
+
+}
+
+else{
+
+in = 1-in;
+pivot= 1-pivot;
+
+out = _powf((in/pivot), contrast) *pivot;
+
+out = 1-out;
+}
+return out;
+
+}
+
+__DEVICE__ float apply_shoulder_toe(float in, float shoulder, float toe, float pivot)
+
+{
+
+float out;
+
+
+if(in<=pivot){
+
+
+out = (_powf((in/pivot), toe) *pivot);
+
+
+}
+
+else{
+
+in = 1-in;
+pivot= 1-pivot;
+
+out = _powf((in/pivot), shoulder) *pivot;
+
+out = 1-out;
+
+}
+
+
+return out;
+
+}
+
+DEFINE_UI_PARAMS(contrast, Contrast, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(pivot, Pivot, DCTLUI_SLIDER_FLOAT, .391, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(shoulder, Highlights, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(toe, Shadows, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(limit_white, Limit White, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(limit_black, Limit Black, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(power, Compress, DCTLUI_SLIDER_FLOAT, 1.0, 1.0, 5.0, 0.1)
+DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
+
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    
+    float3 in = {p_R, p_G, p_B};
+
+    float width = (float)p_Width;
+    float height = (float)p_Height;
+    float X = (float)p_X;
+    float Y = height - (float)p_Y;
+    float3 ramp = {X / width, X / width, X / width};
+
+    float3 out;
+
+    {
+    out.x = apply_contrast(in.x, contrast,pivot);
+    out.y = apply_contrast(in.y, contrast,pivot);
+    out.z = apply_contrast(in.z, contrast,pivot);
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe, pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe, pivot);
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+
+    }
+
+
+    if (opt_showcurve == 1)
+
+    {
+
+    float overlayR = ramp.x >= (Y - 5.0f) / height && ramp.x <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayG = ramp.y >= (Y - 5.0f) / height && ramp.y <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayB = ramp.z >= (Y - 5.0f) / height && ramp.z <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+
+    out.x = overlayR == 0.0f ? out.x : overlayR;
+    out.y = overlayG == 0.0f ? out.y : overlayG;
+    out.z = overlayB == 0.0f ? out.z : overlayB;
+
+    }
+   
+
+    return out;
+}
+
+
+
+
+
+
+
+
+
+

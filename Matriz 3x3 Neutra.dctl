@@ -1,0 +1,31 @@
+
+
+DEFINE_UI_PARAMS(red_g, Red G, DCTLUI_SLIDER_FLOAT, 0.0, -1, 2, .1)
+DEFINE_UI_PARAMS(red_b, Red B, DCTLUI_SLIDER_FLOAT, 0.0, -1, 2, .1)
+
+DEFINE_UI_PARAMS(green_r, Green R, DCTLUI_SLIDER_FLOAT, 0.0, -1, 2, .1)
+DEFINE_UI_PARAMS(green_b, Green B, DCTLUI_SLIDER_FLOAT, 0.0, -1, 2, .1)
+
+DEFINE_UI_PARAMS(blue_r, Blue R, DCTLUI_SLIDER_FLOAT, 0.0, -1, 2, .1)
+DEFINE_UI_PARAMS(blue_g, Blue G, DCTLUI_SLIDER_FLOAT, 0.0, -1, 2, .1)
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+
+	float3 in = {p_R, p_G, p_B};
+
+	float3 out;
+
+	{
+
+	out.x = (in.x * (1 - red_g - red_b )) + (in.y * red_g) + (in.z * red_b);
+
+	out.y = (in.x * green_r) + (in.y * (1 - green_r - green_b )) + (in.z * green_b);
+
+	out.z = (in.x * blue_r) + (in.y * blue_g) + (in.z * (1 - blue_r - blue_g ));
+
+	}	
+
+
+	return out;
+}
