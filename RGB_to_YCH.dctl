@@ -1,0 +1,32 @@
+__CONSTANT__ float pie = 3.14159265358979323f;
+
+__DEVICE__ float3 rgb_ych(float3 in)
+
+{
+
+float y = in.x * .333f + in.y * .333f + in.z * .333f;
+
+float a = in.x * .5f - in.y * .25f - in.z * .25f;
+
+float b = in.x * 0.0f + in.y * .433f - in.z * .433f;
+
+float c = _hypotf(a, b);
+
+float h = (180/pie) * _atan2f(b, a);
+if (h < 0.0f) h += 360.0f;
+h = h/360.0f;
+
+return make_float3(y, c, h);
+
+}
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    
+    float3 in = {p_R, p_G, p_B};
+
+    float3 out;
+
+    out = rgb_ych(in);
+    
+    return out;
+}

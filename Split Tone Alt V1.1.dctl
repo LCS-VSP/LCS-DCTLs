@@ -1,0 +1,135 @@
+__DEVICE__ float3 apply_shadow_split(float3 in, float pivot, float strength, float color_mix)
+{
+
+float3 out = in;
+
+float blue_strength = ((1 - color_mix) * strength)/4;
+float green_strength = (color_mix * strength)/4;
+
+if (in.x <= pivot)
+{
+float r = in.x/pivot;
+out.x = (0 * _powf(1 - r,3) + 3 * (.333f)  * _powf(1 - r,2) * r + 3 * (.666f - blue_strength - green_strength) * (1 - r) * _powf(r,2) + 1 * _powf(r,3)) * pivot;
+}
+else{
+out.x = in.x;
+}
+
+if (in.y <= pivot)
+{
+float g = in.y/pivot;
+out.y = (0 * _powf(1 - g,3) + 3 * (.333f) * _powf(1 - g,2) * g + 3 * (green_strength + .666) * (1 - g) * _powf(g,2) + 1 * _powf(g,3))*pivot;
+}
+else{
+out.y = in.y;
+}
+if (in.z <= pivot)
+{
+float b = in.z/pivot;
+out.z = (0 * _powf(1 - b,3) + 3 * (.333f) * _powf(1 - b,2) * b + 3 * (blue_strength + .666) * (1 - b) * _powf(b,2) + 1 * _powf(b,3))*pivot;
+}
+else{
+out.z = in.z;
+}
+
+return out;
+}
+
+
+__DEVICE__ float3 apply_highlight_split(float3 in, float pivot, float strength, float color_mix)
+{
+
+float3 out = in;
+
+in = 1 - in;
+pivot = 1 - pivot;
+
+float red_strength = ((1 - color_mix) * strength)/4;
+float green_strength = (color_mix * strength)/4;
+
+
+if (in.x <= pivot)
+{
+float r = in.x/pivot;
+out.x = (0 * _powf(1 - r,3) + 3 * (1- .666f) * _powf(1 - r,2) * r + 3 * (1 - (red_strength + .333f)) * (1 - r) * _powf(r,2) + 1 * _powf(r,3)) * pivot;
+}
+else{
+out.x = in.x;
+}
+
+if (in.y <= pivot)
+{
+float g = in.y/pivot;
+out.y = (0 * _powf(1 - g,3) + 3 * (1-.666f) * _powf(1 - g,2) * g + 3 * (1- (green_strength + .333f)) * (1 - g) * _powf(g,2) + 1 * _powf(g,3)) * pivot;
+}
+else{
+out.y = in.y;
+}
+
+if (in.z <= pivot)
+{
+float b = in.z/pivot;
+out.z = (0 * _powf(1 - b,3) + 3 * (1-.666f) * _powf(1 - b,2) * b + 3 * (1-(.333f - green_strength - red_strength )) * (1 - b) * _powf(b,2) + 1 * _powf(b,3)) * pivot;
+}
+else{
+out.z = in.z;
+}
+
+out.x = 1 - out.x;
+out.y = 1 - out.y;
+out.z = 1 - out.z;
+
+return out;
+}
+
+DEFINE_UI_PARAMS(pivot, Pivot, DCTLUI_SLIDER_FLOAT, .391, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(neutral_gray, Pivot Width, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(split_shadow, Split Shadow Strength, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(shadow_mix, Shadow color, DCTLUI_SLIDER_FLOAT, 0.5, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(split_highlight, Split Highlight Strength, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(highlight_mix, Highlight color, DCTLUI_SLIDER_FLOAT, 0.5, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
+
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    
+    float3 in = {p_R, p_G, p_B};
+
+    float width = (float)p_Width;
+    float height = (float)p_Height;
+    float X = (float)p_X;
+    float Y = height - (float)p_Y;
+    float3 ramp = {X / width, X / width, X / width};
+
+    float3 out;
+
+    shadow_mix = (shadow_mix * .6f);
+    highlight_mix = (highlight_mix * .6f);
+    neutral_gray = neutral_gray*pivot;
+
+
+    {
+    out = apply_shadow_split(in, pivot-neutral_gray, split_shadow, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split_shadow, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split_highlight, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split_highlight, highlight_mix);
+    }
+   
+    if (opt_showcurve == 1)
+
+    {
+
+    float overlayR = ramp.x >= (Y - 5.0f) / height && ramp.x <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayG = ramp.y >= (Y - 5.0f) / height && ramp.y <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayB = ramp.z >= (Y - 5.0f) / height && ramp.z <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+
+    out.x = overlayR == 0.0f ? out.x : overlayR;
+    out.y = overlayG == 0.0f ? out.y : overlayG;
+    out.z = overlayB == 0.0f ? out.z : overlayB;
+
+    }
+    return out;
+}
