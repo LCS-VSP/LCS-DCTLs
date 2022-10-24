@@ -1,4 +1,6 @@
-
+//Uma das minhas ferramentas favoritas do DaVinci é o RGB Mixer, ele nada mais é do que uma matriz 3x3, onde decidimos uqanto de vermelho(R), verde(G) e azul(B), queremos nos nossos canais R,G e B.
+//Um prblema comum de quem usa essa ferramenta é o fato dela "tingir" seus neutros, ou seja, o que deveria ser cinza possui alguma cor agora, uma das formas de se resolver isso é garantindo que a soma dos inputs RGB seja igual a 1
+//Assim, essa ferramnta se prepoe a garantir essa soma, por exemplo, no canal R, não importa o quanto você altere os inputs de G e B, que o input R se ajusta automaticamente
 
 DEFINE_UI_PARAMS(red_g, Red G, DCTLUI_SLIDER_FLOAT, 0.0, -1, 2, .1)
 DEFINE_UI_PARAMS(red_b, Red B, DCTLUI_SLIDER_FLOAT, 0.0, -1, 2, .1)
