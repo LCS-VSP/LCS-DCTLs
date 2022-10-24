@@ -42,7 +42,6 @@ if(in.z<0.0){
 in.z = 0.001;
 }
 
-//          i1 *  (1 - i6)^3      + 3 *  i2 *          (1 - i6)^2 *   i6 + 3 *    i3   * (1 - i6)   *       i6^2    +i4 *       i6^3
 float g = (0 * _powf(1 - in.y,3) + 3 * .333f * _powf(1 - in.y,2) * in.y + 3 * (density - .333) * (1 - in.y) * _powf(in.y,2) + density * _powf(in.y,3)) * 1;
 
 out.x = (in.x * g/in.y);
