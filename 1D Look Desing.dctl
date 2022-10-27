@@ -1,0 +1,689 @@
+__DEVICE__ float3 apply_shadow_split(float3 in, float pivot, float strength, float color_mix)
+{
+float3 out = in;
+if(in.x < 0.0)
+{
+in.x = 0.0;
+}
+if(in.y < 0.0)
+{
+in.y = 0.0;
+}
+if(in.z < 0.0)
+{
+in.z = 0.0;
+}
+if(in.x > 1.0)
+{
+in.x = 1.0;
+}
+if(in.y > 1.0)
+{
+in.y = 1.0;
+}
+if(in.z > 1.0)
+{
+in.z = 1.0;
+}
+float blue_strength = ((1 - color_mix) * strength)/4;
+float green_strength = (color_mix * strength)/4;
+if (in.x <= pivot)
+{
+float r = in.x/pivot;
+out.x = (0 * _powf(1 - r,3) + 3 * (.333f)  * _powf(1 - r,2) * r + 3 * (.666f - blue_strength - green_strength) * (1 - r) * _powf(r,2) + 1 * _powf(r,3)) * pivot;
+}
+else{
+out.x = in.x;
+}
+if (in.y <= pivot)
+{
+float g = in.y/pivot;
+out.y = (0 * _powf(1 - g,3) + 3 * (.333f) * _powf(1 - g,2) * g + 3 * (green_strength + .666) * (1 - g) * _powf(g,2) + 1 * _powf(g,3))*pivot;
+}
+else{
+out.y = in.y;
+}
+if (in.z <= pivot)
+{
+float b = in.z/pivot;
+out.z = (0 * _powf(1 - b,3) + 3 * (.333f) * _powf(1 - b,2) * b + 3 * (blue_strength + .666) * (1 - b) * _powf(b,2) + 1 * _powf(b,3))*pivot;
+}
+else{
+out.z = in.z;
+}
+return out;
+}
+__DEVICE__ float3 apply_highlight_split(float3 in, float pivot, float strength, float color_mix)
+{
+if(in.x < 0.0)
+{
+in.x = 0.0;
+}
+if(in.y < 0.0)
+{
+in.y = 0.0;
+}
+if(in.z < 0.0)
+{
+in.z = 0.0;
+}
+if(in.x > 1.0)
+{
+in.x = 1.0;
+}
+if(in.y > 1.0)
+{
+in.y = 1.0;
+}
+if(in.z > 1.0)
+{
+in.z = 1.0;
+}
+float3 out = in;
+in = 1 - in;
+pivot = 1 - pivot;
+float red_strength = ((1 - color_mix) * strength)/4;
+float green_strength = (color_mix * strength)/4;
+if (in.x <= pivot)
+{
+float r = in.x/pivot;
+out.x = (0 * _powf(1 - r,3) + 3 * (1- .666f) * _powf(1 - r,2) * r + 3 * (1 - (red_strength + .333f)) * (1 - r) * _powf(r,2) + 1 * _powf(r,3)) * pivot;
+}
+else{
+out.x = in.x;
+}
+if (in.y <= pivot)
+{
+float g = in.y/pivot;
+out.y = (0 * _powf(1 - g,3) + 3 * (1-.666f) * _powf(1 - g,2) * g + 3 * (1- (green_strength + .333f)) * (1 - g) * _powf(g,2) + 1 * _powf(g,3)) * pivot;
+}
+else{
+out.y = in.y;
+}
+if (in.z <= pivot)
+{
+float b = in.z/pivot;
+out.z = (0 * _powf(1 - b,3) + 3 * (1-.666f) * _powf(1 - b,2) * b + 3 * (1-(.333f - green_strength - red_strength )) * (1 - b) * _powf(b,2) + 1 * _powf(b,3)) * pivot;
+}
+else{
+out.z = in.z;
+}
+out.x = 1 - out.x;
+out.y = 1 - out.y;
+out.z = 1 - out.z;
+return out;
+}
+
+__DEVICE__ float3 rgb_yab(float3 in)
+
+{
+float y = in.x * .333f + in.y * .333f + in.z * .333f;
+float a = in.x * .5f - in.y * .25f - in.z * .25f;
+float b = in.x * 0.0f + in.y * .433f - in.z * .433f;
+return make_float3(y, a, b);
+}
+
+__DEVICE__ float3 yab_rgb(float3 in)
+{
+float r = in.x + in.y * 1.333f + in.z * 0.0;
+float g = in.x - in.y * .666f + in.z * 1.154f;
+float b = in.x - in.y * .666f - in.z * 1.154f;
+return make_float3(r, g, b);
+}
+
+__DEVICE__ float apply_compress (float in, float limit_white, float limit_black, float pivot, float power)
+{
+float out;
+if(in>=pivot)
+{
+float a = (((limit_white - 0.001) - pivot) / (1 - pivot));
+float b =_powf(a,-1 * power) - 1;
+float s = (1 - pivot) / _powf(b,1/power);
+float c = 1 + ((in - pivot) / s);
+float d = _powf(c,power);
+out = pivot + s *((in - pivot) / s) / _powf(d,1/power);
+}
+else{
+in = 1-in;
+pivot= 1-pivot;
+float a = (( -1.0*(limit_black - .999)  - pivot) / (1 - pivot));
+float b =_powf(a,-1 * power) - 1;
+float s = (1 - pivot) / _powf(b,1/power);
+float c = 1 + ((in - pivot) / s);
+float d = _powf(c,power);
+out = pivot + s *((in - pivot) / s) / _powf(d,1/power);
+out = 1-out;
+}
+return out;
+}
+
+__DEVICE__ float apply_contrast(float in, float contrast, float pivot)
+{
+float out;
+if(in<0.0)
+{
+in= 0.0;
+}
+if(in>1.0)
+{
+in= 1.0;
+}
+if(in<=pivot){
+out = _powf((in/pivot), contrast) *pivot;
+}
+else{
+in = 1-in;
+pivot= 1-pivot;
+out = _powf((in/pivot), contrast) *pivot;
+out = 1-out;
+}
+return out;
+}
+
+__DEVICE__ float apply_shoulder_toe(float in, float shoulder, float toe, float pivot)
+{
+float out;
+if(in<=pivot){
+out = (_powf((in/pivot), toe) *pivot);
+}
+else{
+in = 1-in;
+pivot= 1-pivot;
+out = _powf((in/pivot), shoulder) *pivot;
+out = 1-out;
+}
+return out;
+}
+
+DEFINE_UI_PARAMS(contrast, Contrast, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(trasferfunction, Transfer Function, DCTLUI_COMBO_BOX, 0, { dwg, aces, logc, logc4, red }, { DaVinci Intermediate, Aces cct, Log-C3, Log-C4,Log3G10})
+DEFINE_UI_PARAMS(shoulder, Highlights, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(toe, Shadows, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(limit_white, Limit White, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(limit_black, Limit Black, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(power, Compress, DCTLUI_SLIDER_FLOAT, 1.0, 1.0, 5.0, 0.1)
+DEFINE_UI_PARAMS(split, Split Tone Strength, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(shadow_mix, Shadow color, DCTLUI_SLIDER_FLOAT, 0.5, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(highlight_mix, Highlight color, DCTLUI_SLIDER_FLOAT, 0.5, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(neutral_gray, Pivot Width, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(luma, Only Y, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    
+    float3 in = {p_R, p_G, p_B};
+    float width = (float)p_Width;
+    float height = (float)p_Height;
+    float X = (float)p_X;
+    float Y = height - (float)p_Y;
+    float3 ramp = {X / width, X / width, X / width};
+    float3 out;
+    
+    shadow_mix = (shadow_mix * .6f);
+    highlight_mix = (highlight_mix * .6f);
+
+//Canal RGB
+    if (luma == 0)
+    {
+//LogC3
+    if(trasferfunction == logc){
+    float pivot = .391;
+    neutral_gray = neutral_gray*pivot;
+    {
+    out.x = apply_contrast(in.x, contrast,pivot);
+    out.y = apply_contrast(in.y, contrast,pivot);
+    out.z = apply_contrast(in.z, contrast,pivot);
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe, pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe, pivot);
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out = apply_shadow_split(out, pivot-neutral_gray, split, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split, highlight_mix);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+    }
+    }
+//LogC4
+    if(trasferfunction == logc4){
+    float pivot = .278;
+    neutral_gray = neutral_gray*pivot;
+    {
+    out.x = apply_contrast(in.x, contrast,pivot);
+    out.y = apply_contrast(in.y, contrast,pivot);
+    out.z = apply_contrast(in.z, contrast,pivot);
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe, pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe, pivot);
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out = apply_shadow_split(out, pivot-neutral_gray, split, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split, highlight_mix);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+    }
+    }
+//ACES 
+    if(trasferfunction == aces){
+    float pivot = .414;
+    neutral_gray = neutral_gray*pivot;
+    {
+    out.x = apply_contrast(in.x, contrast,pivot);
+    out.y = apply_contrast(in.y, contrast,pivot);
+    out.z = apply_contrast(in.z, contrast,pivot);
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe, pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe, pivot);
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out = apply_shadow_split(out, pivot-neutral_gray, split, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split, highlight_mix);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+    }
+    }
+//DaVinci Intermediate 
+    if(trasferfunction == dwg){
+    float pivot = .336;
+    neutral_gray = neutral_gray*pivot;
+    {
+    out.x = apply_contrast(in.x, contrast,pivot);
+    out.y = apply_contrast(in.y, contrast,pivot);
+    out.z = apply_contrast(in.z, contrast,pivot);
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe, pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe, pivot);
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out = apply_shadow_split(out, pivot-neutral_gray, split, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split, highlight_mix);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+    }
+    }
+//Log3G10 
+    if(trasferfunction == red){
+    float pivot = .333;
+    neutral_gray = neutral_gray*pivot;
+    {
+    out.x = apply_contrast(in.x, contrast,pivot);
+    out.y = apply_contrast(in.y, contrast,pivot);
+    out.z = apply_contrast(in.z, contrast,pivot);
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe, pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe, pivot);
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out = apply_shadow_split(out, pivot-neutral_gray, split, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split, highlight_mix);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+    }
+    }
+    }
+//Canal Y   
+    if (luma == 1){
+//LogC3
+    if(trasferfunction == logc){
+    float pivot = .391;
+    neutral_gray = neutral_gray*pivot;
+    {
+    out = rgb_yab(in);
+    }
+    {
+    out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = out.y;
+    out.z = out.z;
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = out.y;
+    out.z = out.z;
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out = yab_rgb(out);
+    }
+    {
+    out = apply_shadow_split(out, pivot-neutral_gray, split, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split, highlight_mix);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+    }
+    }
+//LogC4
+    if(trasferfunction == logc4){
+    float pivot = .278;
+    neutral_gray = neutral_gray*pivot;
+    {
+    out = rgb_yab(in);
+    }
+    {
+    out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = out.y;
+    out.z = out.z;
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = out.y;
+    out.z = out.z;
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out = yab_rgb(out);
+    }
+    {
+    out = apply_shadow_split(out, pivot-neutral_gray, split, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split, highlight_mix);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+    }
+    }
+//ACES 
+    if(trasferfunction == aces){
+    float pivot = .414;
+    neutral_gray = neutral_gray*pivot;
+    {
+    out = rgb_yab(in);
+    }
+    {
+    out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = out.y;
+    out.z = out.z;
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = out.y;
+    out.z = out.z;
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out = yab_rgb(out);
+    }
+    {
+    out = apply_shadow_split(out, pivot-neutral_gray, split, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split, highlight_mix);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+    }
+    }
+//DaVinci Intermediate 
+    if(trasferfunction == dwg){
+    float pivot = .336;
+    neutral_gray = neutral_gray*pivot;
+    {
+    out = rgb_yab(in);
+    }
+    {
+    out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = out.y;
+    out.z = out.z;
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = out.y;
+    out.z = out.z;
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out = yab_rgb(out);
+    }
+    {
+    out = apply_shadow_split(out, pivot-neutral_gray, split, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split, highlight_mix);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+    }
+    }
+//Log3G10 
+    if(trasferfunction == red){
+    float pivot = .333;
+    neutral_gray = neutral_gray*pivot;
+    {
+    out = rgb_yab(in);
+    }
+    {
+    out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = out.y;
+    out.z = out.z;
+
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);   
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe, pivot);
+    out.y = out.y;
+    out.z = out.z;
+    
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe, pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe, pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe, pivot);
+    }
+    {
+    out = yab_rgb(out);
+    }
+    {
+    out = apply_shadow_split(out, pivot-neutral_gray, split, shadow_mix);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split, shadow_mix);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split, highlight_mix);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split, highlight_mix);
+    }
+    {
+    out.x = apply_compress(out.x, limit_white, limit_black, pivot, power);
+    out.y = apply_compress(out.y, limit_white, limit_black, pivot, power);
+    out.z = apply_compress(out.z, limit_white, limit_black, pivot, power);
+
+    ramp.x = apply_compress(ramp.x, limit_white, limit_black, pivot, power);
+    ramp.y = apply_compress(ramp.y, limit_white, limit_black, pivot, power);
+    ramp.z = apply_compress(ramp.z, limit_white, limit_black, pivot, power);
+    }
+    }
+    }
+   
+    if (opt_showcurve == 1)
+
+    {
+
+    float overlayR = ramp.x >= (Y - 5.0f) / height && ramp.x <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayG = ramp.y >= (Y - 5.0f) / height && ramp.y <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayB = ramp.z >= (Y - 5.0f) / height && ramp.z <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+
+    out.x = overlayR == 0.0f ? out.x : overlayR;
+    out.y = overlayG == 0.0f ? out.y : overlayG;
+    out.z = overlayB == 0.0f ? out.z : overlayB;
+
+    }
+   
+    return out;
+}
+
+
+
+
+
+
+
+
+
+
