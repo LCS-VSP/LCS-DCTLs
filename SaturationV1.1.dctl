@@ -1,0 +1,155 @@
+__CONSTANT__ float pie = 3.14159265358979323f;
+
+__DEVICE__ float3 rgb_ych(float3 in)
+{
+float y = in.x * .333f + in.y * .333f + in.z * .333f;
+float a = in.x * .5f - in.y * .25f - in.z * .25f;
+float b = in.x * 0.0f + in.y * .433f - in.z * .433f;
+float c = _hypotf(a, b);
+float h = (180/pie) * _atan2f(b, a);
+if (h < 0.0f) h += 360.0f;
+return make_float3(y, c, h);
+}
+
+__DEVICE__ float3 apply_density(float3 in, float density)
+{
+float3 out = in;
+if(in.x > 1.0){
+in.x = 1.0;
+}
+if(in.x <= 0.0){
+in.x = 0.001;
+}
+if(in.y>1.0){
+in.y = 1.0;
+}
+if(in.y <= 0.0){
+in.y = 0.001;
+}
+if(in.z>1.0){
+in.z = 1.0;
+}
+if(in.z<0.0){
+in.z = 0.001;
+}
+float g = (0 * _powf(1 - in.y,3) + 3 * .333f * _powf(1 - in.y,2) * in.y + 3 * (density - .333) * (1 - in.y) * _powf(in.y,2) + density * _powf(in.y,3)) * 1;
+out.x = (in.x * g/in.y);
+return out;
+}
+
+__DEVICE__ float3 apply_limit(float3 in, float limit_out)
+
+{
+float3 out = in;
+float a = _powf(limit_out, -1 * 1) - 1;
+float s = 1/ _powf(a,1/1);
+float b = 1 + (in.y / s);
+float c = _powf(b,1);
+out.y = s * (in.y / s) / _powf(c,1/1);
+return out;
+}
+
+__DEVICE__ float3 ych_rgb(float3 in)
+
+{
+float a = in.y * _cosf(in.z * (pie / 180.0f));
+float b = in.y * _sinf(in.z * (pie / 180.0f));
+float r = in.x + a * 1.333f + b * 0.0;
+float g = in.x - a * .666f + b * 1.154f;
+float e = in.x - a * .666f - b * 1.154f;
+return make_float3(r, g, e);
+}
+
+__DEVICE__ float3 rgb_hsv(float3 in){
+float3 HSV;
+float min = _fminf(_fminf(in.x, in.y), in.z);
+float max = _fmaxf(_fmaxf(in.x, in.y), in.z);
+HSV.z = max;
+float delta = max - min;
+if (max != 0.0f) {
+HSV.y = delta / max;
+} else {
+HSV.y = 0.0f;
+HSV.x = 0.0f;
+return HSV;
+}
+if (delta == 0.0f) {
+HSV.x = 0.0f;
+} else if (in.x == max) {
+HSV.x = (in.y - in.z) / delta;
+} else if (in.y == max) {
+HSV.x = 2.0f + (in.z - in.x) / delta;
+} else {
+HSV.x = 4.0f + (in.x - in.y) / delta;
+}
+HSV.x *= 1.0f / 6.0f;
+if (HSV.x < 0.0f)
+HSV.x += 1.0f;
+return HSV;
+}
+
+__DEVICE__ float3 hsv_rgb(float3 in){
+float3 RGB;
+if (in.y == 0.0f) {
+RGB.x = RGB.y = RGB.z = in.z;
+} else {
+in.x *= 6.0f;
+float i = _floorf(in.x);
+float f = in.x - i;
+i = i >= 0.0f ? _fmod(i, 6.0f) : _fmod(i, 6.0f) + 6.0f;
+float p = in.z * (1.0f - in.y);
+float q = in.z * (1.0f - in.y * f);
+float t = in.z * (1.0f - in.y * (1.0f - f));
+RGB.x = i == 0.0f ? in.z : i == 1.0f ? q : i == 2.0f ? p : i == 3.0f ? p : i == 4.0f ? t : in.z;
+RGB.y = i == 0.0f ? t : i == 1 ? in.z : i == 2.0f ? in.z : i == 3.0f ? q : i == 4.0f ? p : p;
+RGB.z = i == 0.0f ? p : i == 1 ? p : i == 2.0f ? t : i == 3.0f ? in.z : i == 4.0f ? in.z : q;
+}
+return RGB;
+}
+
+
+__DEVICE__ float3 apply_sat(float3 in, float sat)
+{
+float3 out = in;
+out.y =(0 * _powf(1 - in.y,3) + 3 * sat * _powf(1 - in.y,2) * in.y + 3 * .666 * (1 - in.y) * _powf(in.y,2) + 1.0 * _powf(in.y,3)) * 1;
+return out;
+}
+
+DEFINE_UI_PARAMS(saturation, Saturation, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.001)
+DEFINE_UI_PARAMS(limit_out, Limit, DCTLUI_SLIDER_FLOAT, .999, 0.001, .999, 0.001)
+DEFINE_UI_PARAMS(density, Color Density, DCTLUI_SLIDER_FLOAT, 1.0, .333, 1.0, 0.001)
+
+
+__DEVICE__ float3 transform (int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    float3 in = {p_R, p_G, p_B};
+
+    float3 out;
+
+    float sat = saturation*.333;
+    
+    {
+    out=rgb_hsv(in);
+    }
+    {
+    out=apply_sat(out, sat);
+    }
+    {
+    out=hsv_rgb(out);
+    }
+    {
+    out = rgb_ych(out);
+    }
+    {
+    out = apply_density(out, density);
+    }
+    {
+    out = apply_limit(out, limit_out);
+    }
+    {
+    out = ych_rgb(out);
+    }
+
+    return out;
+}
+
