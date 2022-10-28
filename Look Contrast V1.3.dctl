@@ -44,14 +44,7 @@ return out;
 __DEVICE__ float apply_contrast(float in, float contrast, float pivot)
 {
 float out;
-if(in<0.0)
-{
-in= 0.0;
-}
-if(in>1.0)
-{
-in= 1.0;
-}
+
 if(in<=pivot){
 out = _powf((in/pivot), contrast) *pivot;
 }
