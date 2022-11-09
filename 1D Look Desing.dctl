@@ -159,7 +159,7 @@ DEFINE_UI_PARAMS(split, Split Tone Strength, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0,
 DEFINE_UI_PARAMS(shadow_mix, Shadow color, DCTLUI_SLIDER_FLOAT, 0.5, 0.0, 1.0, 0.1)
 DEFINE_UI_PARAMS(highlight_mix, Highlight color, DCTLUI_SLIDER_FLOAT, 0.5, 0.0, 1.0, 0.1)
 DEFINE_UI_PARAMS(neutral_gray, Pivot Width, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
-DEFINE_UI_PARAMS(luma, Only Y, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(luma, Y Contrast, DCTLUI_CHECK_BOX, 0)
 DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
 
 __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
