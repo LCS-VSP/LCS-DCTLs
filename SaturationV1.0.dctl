@@ -1,0 +1,63 @@
+__DEVICE__ float3 rgb_to_cone(float3 rgb) {
+    const float pi= 3.14159265359f;
+    const float rtr = rgb.x * 0.81649658f + rgb.y * -0.40824829f + rgb.z * -0.40824829f;
+    const float rtg = rgb.x * 0.0f + rgb.y * 0.70710678f + rgb.z * -0.70710678f;
+    const float rtb = rgb.x * 0.57735027f + rgb.y * 0.57735027f + rgb.z * 0.57735027f;
+
+    const float art = _atan2f(rtg, rtr);
+
+    const float sphr = _sqrtf(rtr*rtr + rtg*rtg + rtb*rtb);
+    const float spht = art < 0.0f ? art + 2.0f * 3.141592653589f : art;
+    const float sphp = _atan2f(_sqrtf(rtr*rtr + rtg*rtg), rtb);
+
+//This is to modify the lum component which is the main reason why the saturation component has a different behavior 
+    const float huecoef1= 1.0f/(2.0f-(0.78539816f/0.61547971f));
+    const float huecoef2 = 2.0f*sphp*_sinf((2.0f*pi/3.0f)-_fmod(spht,(pi/3.0f)))/1.7320508075688f;
+    const float huemag =((_acosf(_cosf(3.0f*spht+pi)))/(pi*huecoef1)+(((0.78539816f/0.61547971f))-1.0f))*huecoef2;
+    const float satmag = _sinf(huemag+0.61547971f);
+
+
+
+    return make_float3(
+        sphr*satmag,
+        spht * 0.15915494309189535f,
+        sphp * 1.0467733744265997f
+    );
+}
+
+DEFINE_UI_PARAMS(model, Color Model, DCTLUI_COMBO_BOX, 0, { hsv, hsl, hsp, ych, conecord}, { HSV, HSL, HSP, YCH, Cone Coordenates})
+DEFINE_UI_PARAMS(gain, Saturation, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    
+    float3 in = {p_R, p_G, p_B};
+
+    float3 out;
+    float3 cone;
+    cone = rgb_to_cone(in);
+    float get_luma;
+
+    if(model == ych){
+    get_luma = in.x * .333f + in.y * .333f + in.z * .333f;
+    }
+    if(model == hsv){
+    get_luma = _fmaxf(_fmaxf(in.x, in.y), in.z);
+    }
+    if(model == hsl){
+    get_luma = _fminf(_fminf(in.x, in.y), in.z);
+    }
+    if(model == hsp){
+    get_luma = _sqrtf(.299f*_powf(in.x,2) + .587f*_powf(in.y,2)+.114*_powf(in.z,2));
+    }
+    if(model == conecord){
+    get_luma = cone.x;
+    }
+    {
+    out.x = ((in.x-get_luma)*gain)+get_luma;
+    out.y = ((in.y-get_luma)*gain)+get_luma;
+    out.z = ((in.z-get_luma)*gain)+get_luma;
+    }
+    
+    return out;
+}

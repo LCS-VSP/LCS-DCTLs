@@ -1,0 +1,154 @@
+ __DEVICE__ float3 rgb_yab(float3 in)
+
+{
+float y = in.x * .333f + in.y * .333f + in.z * .333f;
+float a = in.x * .5f - in.y * .25f - in.z * .25f;
+float b = in.x * 0.0f + in.y * .433f - in.z * .433f;
+return make_float3(y, a, b);
+}
+
+__DEVICE__ float3 yab_rgb(float3 in)
+{
+float r = in.x + in.y * 1.333f + in.z * 0.0;
+float g = in.x - in.y * .666f + in.z * 1.154f;
+float b = in.x - in.y * .666f - in.z * 1.154f;
+return make_float3(r, g, b);
+}
+
+__DEVICE__ float3 gain_rgb(float3 in, float strength)
+{
+float3 out;
+out.x = in.x*strength;
+out.y = in.y*strength;
+out.z = in.z*strength;
+return out;
+}
+
+__DEVICE__ float3 gain_rgb_luma(float3 in, float strength)
+{
+float3 out;
+out.x = in.x/strength;
+out.y = in.y/strength;
+out.z = in.z/strength;
+return out;
+}
+
+__DEVICE__ float3 gain_y(float3 in, float strength)
+{
+float3 out;
+out.x = in.x*strength;
+out.y = in.y;
+out.z = in.z;
+return out;
+}
+__DEVICE__ float apply_contrast(float in, float contrast, float pivot)
+{
+float out;
+if(in<0.0)
+{
+in= 0.0;
+}
+if(in>1.0)
+{
+in= 1.0;
+}
+if(in<=pivot){
+out = _powf((in/pivot), contrast) *pivot;
+}
+else{
+in = 1-in;
+pivot= 1-pivot;
+out = _powf((in/pivot), contrast) *pivot;
+out = 1-out;
+}
+return out;
+}
+
+DEFINE_UI_PARAMS(strengh, Strenght, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(trasferfunction, Transfer Function, DCTLUI_COMBO_BOX, 0, { dwg, aces, logc, logc4, red }, { DaVinci Intermediate, Aces cct, Log-C3, Log-C4,Log3G10})
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    float3 in = {p_R, p_G, p_B};
+
+    float3 out;
+    float contrast;
+    float saturation;
+
+    saturation=strengh*2.0f+1.0f;
+    contrast=strengh+1.0f;
+//Gain Down
+    {
+    out = gain_rgb_luma(in, saturation);
+    }
+//RGB to Yab
+    {
+    out = rgb_yab(out);
+    }
+//Gain Y
+    {
+    out = gain_y(out, saturation);
+    }
+//Log-C3
+    if(trasferfunction == logc){
+    float pivot = .391;
+    {
+    out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = out.y;
+    out.z = out.z;
+    }
+    }
+//Log-C4
+    if(trasferfunction == logc4){
+    float pivot = .278;
+    {
+    out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = out.y;
+    out.z = out.z;
+    }
+    }
+//ACEScct
+    if(trasferfunction == aces){
+    float pivot = .414;
+    {
+    out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = out.y;
+    out.z = out.z;
+    }
+    }
+//DaVinci Intermediate
+    if(trasferfunction == dwg){
+    float pivot = .336;
+    {
+    out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = out.y;
+    out.z = out.z;
+    }
+    }
+//Log3G10
+    if(trasferfunction == red){
+    float pivot = .333;
+    {
+    out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = out.y;
+    out.z = out.z;
+    }
+    }
+//Yab to RGB
+    {
+    out = yab_rgb(out);
+    }
+
+   
+    return out;
+}
+
+
+
+
+
+
+
+
+
+

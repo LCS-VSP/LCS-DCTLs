@@ -1,0 +1,695 @@
+//FORMULAS PARA LOG-LINEAR-LOG
+// Log3G10
+__DEVICE__ float log3g10_lin(float in)
+{
+float out;
+float a =  0.224282f;
+float b =  155.975327f;
+float c =  0.01f;
+float g =  15.1927f;
+if(in<0.0f){
+out= (in/g)-c;
+}
+else{
+out = (_powf(10.0f,in/a)-1.0f)/b;
+}
+out=out-c;
+return out;
+}
+__DEVICE__ float lin_log3g10(float in)
+{
+float out;
+float a =  0.224282f;
+float b =  155.975327f;
+float c =  0.01f;
+float g =  15.1927f;
+in = in + c;
+if(in<0.0f){
+out=in*g;
+}
+else{
+out = a*_log10f((in*b)+1.0f);
+}
+return out;
+}
+// ARRI LOG-C4
+__DEVICE__ float logc4_lin(float in)
+{
+float out;
+float a = (_powf(2.0f, 18.0f) - 16.0f)*1/117.45f;
+float b = (1023.0f - 95.0f)/1023.0f;
+float c = 95.0f/1023.0f;
+float s = 7.0f*_logf(2) * _powf(2, 7-14*c/b)/a*b;
+float t = (_powf(2, 14.0f* -1.0f*(c/b)) - 64.0f)/a;
+if(in>=0){
+out = (_powf(2,(14.0f*(in-c)/b + 6.0f)) - 64.0f)/a;
+}
+else{
+out = in * s + t;
+}
+return out;
+}
+__DEVICE__ float lin_logc4(float in)
+{
+float out;
+float a = (_powf(2.0f, 18.0f) - 16.0f)*1/117.45f;
+float b = (1023.0f - 95.0f)/1023.0f;
+float c = 95.0f/1023.0f;
+float s = 7.0f*_logf(2) * _powf(2, 7-14*c/b)/a*b;
+float t = (_powf(2, 14.0f* -1.0f*(c/b)) - 64.0f)/a;
+if(in>=t){
+out = ((_log2f(a*in+64.0f)-6)/14)*b + c;
+}
+else{
+out = (in-t)/s;
+}
+return out;
+}
+//ARRI LOG-C3
+__DEVICE__ float logc_lin(float in)
+{
+float out;
+float cut = 0.004201f;
+float e = 5.367655f;
+float f = 0.092809f;
+float d = 0.385537f;
+float c = 0.247190f;
+float b = 0.052272f;
+float a = 5.555556f;
+out = (in > e * cut + f) ? (_powf(10, (in - d) / c) - b) / a: (in - f) / e;
+return out;
+}
+__DEVICE__ float lin_logc(float in)
+{
+float out;
+float cut = 0.010591f;
+float e = 5.367655f;
+float f = 0.092809f;
+float d = 0.385537f;
+float c = 0.247190f;
+float b = 0.052272f;
+float a = 5.555556f;
+out = (in > cut) ? c * _log10f(a * in + b) + d: e * in + f;
+return out;
+}
+//ACES
+__DEVICE__ float cct_lin(float in)
+{
+float out;
+float Y_BRK = 0.155251141552511f;
+float A = 10.5402377416545f;
+float B = 0.0729055341958355f;
+if (in > Y_BRK){
+out = _powf( 2.0f, in * 17.52f - 9.72f);
+}
+else{
+out = (in - B) / A;
+}
+return out;
+}
+__DEVICE__ float lin_cct(float in)
+{
+float out;
+float X_BRK = 0.0078125f;
+float A = 10.5402377416545f;
+float B = 0.0729055341958355f;
+if (in <= X_BRK){
+out = A * in + B;
+}
+else{
+out = (_log2f(in) + 9.72f) / 17.52f;
+}
+return out;
+}
+//DaVinci WideGammut
+__DEVICE__ float di_lin(float in)
+{
+float out;
+float DI_LOG_CUT =0.02740668f;
+float DI_C = 0.07329248f;
+float DI_B = 7.0f;
+float DI_A = 0.0075f;
+float DI_M = 10.44426855f;
+if(in <= DI_LOG_CUT){
+out = in/DI_M;
+}
+else{
+out = _powf(2.0f, (in / DI_C) - DI_B)- DI_A;
+}
+return out;
+}
+__DEVICE__ float lin_di(float in)
+{
+float out;
+float DI_LIN_CUT = 0.00262409f;
+float DI_C = 0.07329248f;
+float DI_B = 7.0f;
+float DI_A = 0.0075f;
+float DI_M = 10.44426855f;
+if(in <= DI_LIN_CUT){
+out = in * DI_M;
+}
+else{
+out = (_log2f(in + DI_A) + DI_B) * DI_C;
+}
+return out;
+}
+//FUNÇÕES PARA CONTRASTE
+__DEVICE__ float apply_white(float in, float n)
+{
+float out;
+if(in>=.18f)
+{
+float limit_white = .18f*_powf(2,n);
+float a = (limit_white - .18f) / (_powf(2,n) - .18f);
+float b =_powf(a,-1 * 1.0f) - 1;
+float s = (_powf(2,n) - .18f) / _powf(b,1/1.0f);
+float c = 1 + ((in - .18f) / s);
+float d = _powf(c,1.0f);
+out = .18f + s *((in - .18f) / s) / _powf(d,1/1.0f);
+}
+else{
+out=in;
+}
+return out;
+}
+__DEVICE__ float apply_blackpoint(float in, float limit_black, float pivot)
+{
+float out;
+if(in<0.0f){
+in=0.0f;
+}
+if(in<pivot)
+{
+in = 1-in;
+pivot= 1-pivot;
+float a = (( -1.0*(limit_black - .999)  - pivot) / (1 - pivot));
+float b =_powf(a,-1 * 1.0f) - 1;
+float s = (1 - pivot) / _powf(b,1/1.0f);
+float c = 1 + ((in - pivot) / s);
+float d = _powf(c,1.0f);
+out = pivot + s *((in - pivot) / s) / _powf(d,1/1.0f);
+out = 1-out;
+}
+else{
+out = in;
+}
+return out;
+}
+__DEVICE__ float apply_contrast(float in, float contrast, float pivot)
+{
+float out;
+if(in<0.0f){
+in=0.0f;
+}
+if(in<=pivot){
+out = _powf((in/pivot), contrast) *pivot;
+}
+else{
+in = 1-in;
+pivot= 1-pivot;
+out = _powf((in/pivot), contrast) *pivot;
+out = 1-out;
+}
+return out;
+}
+__DEVICE__ float apply_shoulder_toe(float in, float shoulder, float toe, float pivot)
+{
+float out;
+if(in<0.0f){
+in=0.0f;
+}
+if(in<=pivot){
+out = (_powf((in/pivot), toe) *pivot);
+}
+else{
+in = 1-in;
+pivot= 1-pivot;
+out = _powf((in/pivot), shoulder) *pivot;
+out = 1-out;
+}
+return out;
+}
+//FUNÇÕES PARA SPLIT TONE
+
+__DEVICE__ float3 apply_shadow_split(float3 in, float pivot, float strength, float color_mix, float neutral_black)
+{
+float3 out = in;
+if(in.x<0.0f){
+in.x=0.0f;
+}
+if(in.y<0.0f){
+in.y=0.0f;
+}
+if(in.z<0.0f){
+in.z=0.0f;
+}
+float blue_strength = ((1 - color_mix) * strength)/3;
+float green_strength = (color_mix * strength)/3;
+if (in.x <= pivot)
+{
+float r = in.x/pivot;
+out.x = ((0.f- (blue_strength*neutral_black) - (green_strength*neutral_black)) * _powf(1 - r,3) + 3 * (.333f- (blue_strength*neutral_black) - (green_strength*neutral_black))  * _powf(1 - r,2) * r + 3 * (.666f - blue_strength - green_strength) * (1 - r) * _powf(r,2) + 1 * _powf(r,3)) * pivot;
+}
+else{
+out.x = in.x;
+}
+if (in.y <= pivot)
+{
+float g = in.y/pivot;
+out.y = (green_strength*neutral_black * _powf(1 - g,3) + 3 * (green_strength*neutral_black + .333f) * _powf(1 - g,2) * g + 3 * (green_strength + .666) * (1 - g) * _powf(g,2) + 1 * _powf(g,3))*pivot;
+}
+else{
+out.y = in.y;
+}
+if (in.z <= pivot)
+{
+float b = in.z/pivot;
+out.z = (blue_strength*neutral_black * _powf(1 - b,3) + 3 * (blue_strength*neutral_black + .333f) * _powf(1 - b,2) * b + 3 * (blue_strength + .666) * (1 - b) * _powf(b,2) + 1 * _powf(b,3))*pivot;
+}
+else{
+out.z = in.z;
+}
+return out;
+}
+
+__DEVICE__ float3 apply_highlight_split(float3 in, float pivot, float strength, float color_mix, float neutral_white)
+{
+float3 out = in;
+if(in.x<0.0f){
+in.x=0.0f;
+}
+if(in.y<0.0f){
+in.y=0.0f;
+}
+if(in.z<0.0f){
+in.z=0.0f;
+}
+in = 1 - in;
+pivot = 1 - pivot;
+float red_strength = ((1 - color_mix) * strength)/4;
+float green_strength = (color_mix * strength)/4;
+if (in.x <= pivot)
+{
+float r = in.x/pivot;
+out.x = ((1- (neutral_white*red_strength + 1.f)) * _powf(1 - r,3) + 3 * (1- (neutral_white*red_strength + .666f)) * _powf(1 - r,2) * r + 3 * (1 - (red_strength + .333f)) * (1 - r) * _powf(r,2) + 1 * _powf(r,3)) * pivot;
+}
+else{
+out.x = in.x;
+}
+if (in.y <= pivot)
+{
+float g = in.y/pivot;
+out.y = ((1-(neutral_white*green_strength + 1.f)) * _powf(1 - g,3) + 3 * (1-(neutral_white*green_strength + .666f)) * _powf(1 - g,2) * g + 3 * (1- (green_strength + .333f)) * (1 - g) * _powf(g,2) + 1 * _powf(g,3)) * pivot;
+}
+else{
+out.y = in.y;
+}
+if (in.z <= pivot)
+{
+float b = in.z/pivot;
+out.z = ((1-(1.f - (green_strength*neutral_white) - (red_strength*neutral_white))) * _powf(1 - b,3) + 3 * (1-(.666f - (green_strength*neutral_white) - (red_strength*neutral_white))) * _powf(1 - b,2) * b + 3 * (1-(.333f - green_strength - red_strength )) * (1 - b) * _powf(b,2) + 1 * _powf(b,3)) * pivot;
+}
+else{
+out.z = in.z;
+}
+out.x = 1 - out.x;
+out.y = 1 - out.y;
+out.z = 1 - out.z;
+return out;
+}
+
+DEFINE_UI_PARAMS(contrast, Contrast, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(trasferfunction, Transfer Function, DCTLUI_COMBO_BOX, 0, { dwg, aces, logc, logc4, red }, { DaVinci Intermediate, Aces cct, Log-C3, Log-C4,Log3G10})
+DEFINE_UI_PARAMS(shoulder, Highlights, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(toe, Shadows, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(limit_white, White Point-Stops, DCTLUI_SLIDER_FLOAT, 12.0, 0.0, 12.0, 0.1)
+DEFINE_UI_PARAMS(limit_black, Black Point, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(split_sh, Split Shadow Strength, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(shadow_mix, Shadow color, DCTLUI_SLIDER_FLOAT, 0.5, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(neutral_black, Neutral Black, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(split_hi, Split Highligh Strength, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(highlight_mix, Highlight color, DCTLUI_SLIDER_FLOAT, 0.5, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(neutral_white, Neutral White, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(neutral_gray, Pivot Width, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(luma, Y Contrast, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(opt_showramp, Show Ramp, DCTLUI_CHECK_BOX, 0)
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+
+    float3 in = {p_R, p_G, p_B};
+    float width = (float)p_Width;
+    float height = (float)p_Height;
+    float X = (float)p_X;
+    float Y = height - (float)p_Y;
+    float3 ramp = {X / width, X / width, X / width};
+    float3 out;
+    float get_luma;
+    shadow_mix = (shadow_mix * .6f);
+    highlight_mix = (highlight_mix * .6f);
+    neutral_black = 1- neutral_black;
+    neutral_white = 1-neutral_white;
+    toe = 1-toe;
+
+    if(in.x<0.0f){
+    in.x=0.0f;
+    }
+    if(in.y<0.0f){
+    in.y=0.0f;
+    }
+    if(in.z<0.0f){
+    in.z=0.0f;
+    }
+
+    get_luma = in.x * .333f + in.y * .333f + in.z * .333f;
+
+
+//LogC3
+    if(trasferfunction == logc){
+    float pivot = .391;
+    {
+    out = apply_shadow_split(in, pivot-neutral_gray, split_sh, shadow_mix, neutral_black);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split_sh, shadow_mix, neutral_black);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split_hi, highlight_mix, neutral_white);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split_hi, highlight_mix, neutral_white);
+    }
+    {
+    out.x = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.x - get_luma) : out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.y - get_luma) : out.y = apply_contrast(out.y, contrast,pivot);
+    out.z = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.z - get_luma) : out.z = apply_contrast(out.z, contrast,pivot);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);  
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe,pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe,pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe,pivot);
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe,pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe,pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe,pivot); 
+    }
+    {
+    out.x = logc_lin(out.x);
+    out.y = logc_lin(out.y);
+    out.z = logc_lin(out.z);
+    ramp.x = logc_lin(ramp.x);
+    ramp.y = logc_lin(ramp.y);
+    ramp.z = logc_lin(ramp.z);
+    }
+    {
+    out.x = apply_white(out.x, limit_white);
+    out.y = apply_white(out.y, limit_white);
+    out.z = apply_white(out.z, limit_white);
+    ramp.x = apply_white(ramp.x, limit_white);
+    ramp.y = apply_white(ramp.y, limit_white);
+    ramp.z = apply_white(ramp.z, limit_white);
+    }
+    {
+    out.x = lin_logc(out.x);
+    out.y = lin_logc(out.y);
+    out.z = lin_logc(out.z);
+    ramp.x = lin_logc(ramp.x);
+    ramp.y = lin_logc(ramp.y);
+    ramp.z = lin_logc(ramp.z);
+    }
+    {
+    out.x = apply_blackpoint(out.x, limit_black, pivot);
+    out.y = apply_blackpoint(out.y, limit_black, pivot);
+    out.z = apply_blackpoint(out.z, limit_black, pivot);
+    ramp.x = apply_blackpoint(ramp.x, limit_black, pivot);
+    ramp.y = apply_blackpoint(ramp.y, limit_black, pivot);
+    ramp.z = apply_blackpoint(ramp.z, limit_black, pivot);
+    }
+    }
+//LogC4
+    if(trasferfunction == logc4){
+    float pivot = .278;
+    {
+    out = apply_shadow_split(in, pivot-neutral_gray, split_sh, shadow_mix, neutral_black);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split_sh, shadow_mix, neutral_black);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split_hi, highlight_mix, neutral_white);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split_hi, highlight_mix, neutral_white);
+    }
+    {
+    out.x = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.x - get_luma) : out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.y - get_luma) : out.y = apply_contrast(out.y, contrast,pivot);
+    out.z = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.z - get_luma) : out.z = apply_contrast(out.z, contrast,pivot);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);  
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe,pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe,pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe,pivot);
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe,pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe,pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe,pivot); 
+    }
+    {
+    out.x = logc4_lin(out.x);
+    out.y = logc4_lin(out.y);
+    out.z = logc4_lin(out.z);
+    ramp.x = logc4_lin(ramp.x);
+    ramp.y = logc4_lin(ramp.y);
+    ramp.z = logc4_lin(ramp.z);
+    }
+    {
+    out.x = apply_white(out.x, limit_white);
+    out.y = apply_white(out.y, limit_white);
+    out.z = apply_white(out.z, limit_white);
+    ramp.x = apply_white(ramp.x, limit_white);
+    ramp.y = apply_white(ramp.y, limit_white);
+    ramp.z = apply_white(ramp.z, limit_white);
+    }
+    {
+    out.x = lin_logc4(out.x);
+    out.y = lin_logc4(out.y);
+    out.z = lin_logc4(out.z);
+    ramp.x = lin_logc4(ramp.x);
+    ramp.y = lin_logc4(ramp.y);
+    ramp.z = lin_logc4(ramp.z);
+    }
+    {
+    out.x = apply_blackpoint(out.x, limit_black, pivot);
+    out.y = apply_blackpoint(out.y, limit_black, pivot);
+    out.z = apply_blackpoint(out.z, limit_black, pivot);
+    ramp.x = apply_blackpoint(ramp.x, limit_black, pivot);
+    ramp.y = apply_blackpoint(ramp.y, limit_black, pivot);
+    ramp.z = apply_blackpoint(ramp.z, limit_black, pivot);
+    }
+    }
+//ACES 
+    if(trasferfunction == aces){
+    float pivot = .414;
+    {
+    out = apply_shadow_split(in, pivot-neutral_gray, split_sh, shadow_mix, neutral_black);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split_sh, shadow_mix, neutral_black);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split_hi, highlight_mix, neutral_white);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split_hi, highlight_mix, neutral_white);
+    }
+    {
+    out.x = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.x - get_luma) : out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.y - get_luma) : out.y = apply_contrast(out.y, contrast,pivot);
+    out.z = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.z - get_luma) : out.z = apply_contrast(out.z, contrast,pivot);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);  
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe,pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe,pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe,pivot);
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe,pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe,pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe,pivot); 
+    }
+    {
+    out.x = cct_lin(out.x);
+    out.y = cct_lin(out.y);
+    out.z = cct_lin(out.z);
+    ramp.x = cct_lin(ramp.x);
+    ramp.y = cct_lin(ramp.y);
+    ramp.z = cct_lin(ramp.z);
+    }
+    {
+    out.x = apply_white(out.x, limit_white);
+    out.y = apply_white(out.y, limit_white);
+    out.z = apply_white(out.z, limit_white);
+    ramp.x = apply_white(ramp.x, limit_white);
+    ramp.y = apply_white(ramp.y, limit_white);
+    ramp.z = apply_white(ramp.z, limit_white);
+    }
+    {
+    out.x = lin_cct(out.x);
+    out.y = lin_cct(out.y);
+    out.z = lin_cct(out.z);
+    ramp.x = lin_cct(ramp.x);
+    ramp.y = lin_cct(ramp.y);
+    ramp.z = lin_cct(ramp.z);
+    }
+    {
+    out.x = apply_blackpoint(out.x, limit_black, pivot);
+    out.y = apply_blackpoint(out.y, limit_black, pivot);
+    out.z = apply_blackpoint(out.z, limit_black, pivot);
+    ramp.x = apply_blackpoint(ramp.x, limit_black, pivot);
+    ramp.y = apply_blackpoint(ramp.y, limit_black, pivot);
+    ramp.z = apply_blackpoint(ramp.z, limit_black, pivot);
+    }
+    }
+//DaVinci Intermediate 
+    if(trasferfunction == dwg){
+    float pivot = .336;
+    {
+    out = apply_shadow_split(in, pivot-neutral_gray, split_sh, shadow_mix, neutral_black);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split_sh, shadow_mix, neutral_black);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split_hi, highlight_mix, neutral_white);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split_hi, highlight_mix, neutral_white);
+    }
+    {
+    out.x = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.x - get_luma) : out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.y - get_luma) : out.y = apply_contrast(out.y, contrast,pivot);
+    out.z = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.z - get_luma) : out.z = apply_contrast(out.z, contrast,pivot);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe,pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe,pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe,pivot);
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe,pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe,pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe,pivot); 
+    }
+    {
+    out.x = di_lin(out.x);
+    out.y = di_lin(out.y);
+    out.z = di_lin(out.z);
+    ramp.x = di_lin(ramp.x);
+    ramp.y = di_lin(ramp.y);
+    ramp.z = di_lin(ramp.z);
+    }
+    {
+    out.x = apply_white(out.x, limit_white);
+    out.y = apply_white(out.y, limit_white);
+    out.z = apply_white(out.z, limit_white);
+    ramp.x = apply_white(ramp.x, limit_white);
+    ramp.y = apply_white(ramp.y, limit_white);
+    ramp.z = apply_white(ramp.z, limit_white);
+    }
+    {
+    out.x = lin_di(out.x);
+    out.y = lin_di(out.y);
+    out.z = lin_di(out.z);
+    ramp.x = lin_di(ramp.x);
+    ramp.y = lin_di(ramp.y);
+    ramp.z = lin_di(ramp.z);
+    }
+    {
+    out.x = apply_blackpoint(out.x, limit_black, pivot);
+    out.y = apply_blackpoint(out.y, limit_black, pivot);
+    out.z = apply_blackpoint(out.z, limit_black, pivot);
+    ramp.x = apply_blackpoint(ramp.x, limit_black, pivot);
+    ramp.y = apply_blackpoint(ramp.y, limit_black, pivot);
+    ramp.z = apply_blackpoint(ramp.z, limit_black, pivot);
+    }
+    }
+//Log3G10 
+    if(trasferfunction == red){
+    float pivot = .333;
+    {
+    out = apply_shadow_split(in, pivot-neutral_gray, split_sh, shadow_mix, neutral_black);
+    ramp = apply_shadow_split(ramp, pivot-neutral_gray, split_sh, shadow_mix, neutral_black);
+    }
+    {
+    out = apply_highlight_split(out, pivot+neutral_gray, split_hi, highlight_mix, neutral_white);
+    ramp = apply_highlight_split(ramp, pivot+neutral_gray, split_hi, highlight_mix, neutral_white);
+    }
+    {
+    out.x = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.x - get_luma) : out.x = apply_contrast(out.x, contrast,pivot);
+    out.y = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.y - get_luma) : out.y = apply_contrast(out.y, contrast,pivot);
+    out.z = luma == 1.0f ? apply_contrast(get_luma, contrast,pivot) + (out.z - get_luma) : out.z = apply_contrast(out.z, contrast,pivot);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot);
+    }
+    {
+    out.x = apply_shoulder_toe(out.x, shoulder, toe,pivot);
+    out.y = apply_shoulder_toe(out.y, shoulder, toe,pivot);
+    out.z = apply_shoulder_toe(out.z, shoulder, toe,pivot);
+    ramp.x = apply_shoulder_toe(ramp.x, shoulder, toe,pivot);
+    ramp.y = apply_shoulder_toe(ramp.y, shoulder, toe,pivot);
+    ramp.z = apply_shoulder_toe(ramp.z, shoulder, toe,pivot); 
+    }
+    {
+    out.x = log3g10_lin(out.x);
+    out.y = log3g10_lin(out.y);
+    out.z = log3g10_lin(out.z);
+    ramp.x = log3g10_lin(ramp.x);
+    ramp.y = log3g10_lin(ramp.y);
+    ramp.z = log3g10_lin(ramp.z);
+    }
+    {
+    out.x = apply_white(out.x, limit_white);
+    out.y = apply_white(out.y, limit_white);
+    out.z = apply_white(out.z, limit_white);
+    ramp.x = apply_white(ramp.x, limit_white);
+    ramp.y = apply_white(ramp.y, limit_white);
+    ramp.z = apply_white(ramp.z, limit_white);
+    }
+    {
+    out.x = lin_log3g10(out.x);
+    out.y = lin_log3g10(out.y);
+    out.z = lin_log3g10(out.z);
+    ramp.x = lin_log3g10(ramp.x);
+    ramp.y = lin_log3g10(ramp.y);
+    ramp.z = lin_log3g10(ramp.z);
+    }
+    {
+    out.x = apply_blackpoint(out.x, limit_black, pivot);
+    out.y = apply_blackpoint(out.y, limit_black, pivot);
+    out.z = apply_blackpoint(out.z, limit_black, pivot);
+    ramp.x = apply_blackpoint(ramp.x, limit_black, pivot);
+    ramp.y = apply_blackpoint(ramp.y, limit_black, pivot);
+    ramp.z = apply_blackpoint(ramp.z, limit_black, pivot);
+    }
+    }
+    if (opt_showcurve == 1)
+    {
+    float overlayR = ramp.x >= (Y - 5.0f) / height && ramp.x <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayG = ramp.y >= (Y - 5.0f) / height && ramp.y <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayB = ramp.z >= (Y - 5.0f) / height && ramp.z <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    out.x = overlayR == 0.0f ? out.x : overlayR;
+    out.y = overlayG == 0.0f ? out.y : overlayG;
+    out.z = overlayB == 0.0f ? out.z : overlayB;
+    }
+    if (opt_showramp == 1)
+    {
+    out.x = ramp.x;
+    out.y = ramp.y;
+    out.z = ramp.z;
+    }
+    return out;
+}
+
+
+
+
+
+
+
+
+
+
