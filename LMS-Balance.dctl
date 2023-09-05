@@ -1,0 +1,195 @@
+//FORMULAS PARA LOG-LINEAR-LOG
+//ACEScct
+__DEVICE__ float cct_lin(float in)
+{
+float out;
+float Y_BRK = 0.155251141552511f;
+float A = 10.5402377416545f;
+float B = 0.0729055341958355f;
+if (in > Y_BRK){
+out = _powf( 2.0f, in * 17.52f - 9.72f);
+}
+else{
+out = (in - B) / A;
+}
+return out;
+}
+__DEVICE__ float lin_cct(float in)
+{
+float out;
+float X_BRK = 0.0078125f;
+float A = 10.5402377416545f;
+float B = 0.0729055341958355f;
+if (in <= X_BRK){
+out = A * in + B;
+}
+else{
+out = (_log2f(in) + 9.72f) / 17.52f;
+}
+return out;
+}
+
+//DaVinci Intermediate
+__DEVICE__ float di_lin(float in)
+{
+float out;
+float DI_LOG_CUT =0.02740668f;
+float DI_C = 0.07329248f;
+float DI_B = 7.0f;
+float DI_A = 0.0075f;
+float DI_M = 10.44426855f;
+if(in <= DI_LOG_CUT){
+out = in/DI_M;
+}
+else{
+out = _powf(2.0f, (in / DI_C) - DI_B)- DI_A;
+}
+return out;
+}
+__DEVICE__ float lin_di(float in)
+{
+float out;
+float DI_LIN_CUT = 0.00262409f;
+float DI_C = 0.07329248f;
+float DI_B = 7.0f;
+float DI_A = 0.0075f;
+float DI_M = 10.44426855f;
+if(in <= DI_LIN_CUT){
+out = in * DI_M;
+}
+else{
+out = (_log2f(in + DI_A) + DI_B) * DI_C;
+}
+return out;
+}
+//MATRIZES
+//DWG-XYZ
+__DEVICE__ float3 dwg_xyz(float3 in)
+{
+const float x = (in.x * 0.70062239f) + (in.y * 0.14877482f) + (in.z * 0.10105872f);
+const float y = (in.x * 0.27411851f) + (in.y * 0.87363190f) + (in.z * -0.14775041f);
+const float z = (in.x * -0.09896291f) + (in.y * -0.13789533f) + (in.z * 1.32591599f);
+
+return make_float3(x, y, z);
+}
+//ACES AP1-XYZ
+__DEVICE__ float3 aces1_xyz(float3 in)
+{
+const float x = (0.6624541811f * in.x) + (0.1340042065f * in.y) + (0.156187687f * in.z);
+const float y = (0.2722287168f * in.x) + (0.6740817658f * in.y) + (0.0536895174f * in.z);
+const float z = (-0.0055746495f * in.x) + (0.0040607335f * in.y) + (1.0103391003f * in.z);
+
+return make_float3(x, y, z);
+}
+//XYZ-LMS
+__DEVICE__ float3 xyz_lms(float3 in)
+{
+const float l = (in.x * 0.8951f) + (in.y *  0.2664f) + (in.z * -0.1614f);
+const float m = (in.x * -0.7502f) + (in.y * 1.7135f) + (in.z * 0.0367f);
+const float s = (in.x * 0.0389f) + (in.y *  -0.0685f) + (in.z * 1.0296f);
+
+return make_float3(l, m, s);
+}
+//LMS-XYZ
+__DEVICE__ float3 lms_xyz(float3 in)
+{
+const float x = (in.x * .9870f) + (in.y * -0.1471f) + (in.z * 0.1600f);
+const float y = (in.x * .4323f) + (in.y * .5184f) + (in.z * 0.0493f);
+const float z = (in.x * -0.0085f) + (in.y * 0.0400f) + (in.z * .9685f);
+
+return make_float3(x, y, z);
+}
+//XYZ-ACES AP1(valores errados)
+__DEVICE__ float3 xyz_aces1(float3 in)
+{
+const float r = (1.6410233797f * in.x) + (-0.3248032942f * in.y) + (-0.2364246952f * in.z);
+const float g = (-0.6636628587f * in.x) + (1.6153315917f * in.y) + (0.0167563477f * in.z);
+const float b = (0.0117218943f * in.x) + (-0.008284442f * in.y) + (0.9883948585f * in.z);
+
+return make_float3(r, g, b);
+}
+//XYZ-DWG
+__DEVICE__ float3 xyz_dwg(float3 in)
+{
+const float r = (in.x * 1.51667204f) + (in.y * -0.28147805f) + (in.z * -0.14696363f);
+const float g = (in.x * -0.46491710f) + (in.y * 1.25142378f) + (in.z * 0.17488461f);
+const float b = (in.x * 0.06484905f) + (in.y * 0.10913934f) + (in.z * 0.76141462f);
+
+return make_float3(r, g, b);
+}
+
+
+DEFINE_UI_PARAMS(colorspace, Color Space, DCTLUI_COMBO_BOX, 0, { dwg, aces }, { DaVinci Wide Gamut, Aces cct (AP1) })
+DEFINE_UI_PARAMS(long_gain, Long-R, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(medium_gain, Medium-G, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(short_gain, Short-B, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+
+    float3 in = {p_R, p_G, p_B};
+    float3 out;
+
+//ACES 
+    if(colorspace == aces){
+    {
+    out.x = cct_lin(in.x);
+    out.y = cct_lin(in.y);
+    out.z = cct_lin(in.z);
+    }
+    {
+    out = aces1_xyz(out);
+    }
+    {
+    out = xyz_lms(out);
+    }
+    {
+    out.x = out.x*long_gain;
+    out.y = out.y*medium_gain;
+    out.z = out.z*short_gain;
+    }
+    {
+    out = lms_xyz(out);
+    }
+    {
+    out = xyz_aces1(out);
+    }
+    {
+    out.x = lin_cct(out.x);
+    out.y = lin_cct(out.y);
+    out.z = lin_cct(out.z);
+    }
+    }
+//DaVinci Intermediate 
+    if(colorspace == dwg){
+    {
+    out.x = di_lin(in.x);
+    out.y = di_lin(in.y);
+    out.z = di_lin(in.z);
+    }
+    {
+    out = dwg_xyz(out);
+    }
+    {
+    out = xyz_lms(out);
+    }
+    {
+    out.x = out.x*long_gain;
+    out.y = out.y*medium_gain;
+    out.z = out.z*short_gain;
+    }
+    {
+    out = lms_xyz(out);
+    }
+    {
+    out = xyz_dwg(out);
+    }
+    {
+    out.x = lin_di(out.x);
+    out.y = lin_di(out.y);
+    out.z = lin_di(out.z);
+    }
+    }
+
+    return out;
+}       

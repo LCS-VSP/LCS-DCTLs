@@ -1,0 +1,79 @@
+__DEVICE__ float3 apply_bezier(float3 in, float BLK_R, float SHD_R, float HIG_R, float WHT_R, float BLK_G, float SHD_G, float HIG_G, float WHT_G, float BLK_B ,float SHD_B, float HIG_B, float WHT_B)
+{
+
+float3 out;
+
+float r = in.x/1;
+out.x = (BLK_R * _powf(1 - r,3) + 3 * SHD_R * _powf(1 - r,2) * r + 3 * HIG_R * (1 - r) * _powf(r,2) + WHT_R * _powf(r,3)) * 1;
+
+float g = in.y/1;
+out.y = (BLK_G * _powf(1 - g,3) + 3 * SHD_G * _powf(1 - g,2) * g + 3 * HIG_G * (1 - g) * _powf(g,2) + WHT_G * _powf(g,3)) * 1;
+
+float b = in.z/1;
+out.z = (BLK_B * _powf(1 - b,3) + 3 * SHD_B * _powf(1 - b,2) * b + 3 * HIG_B * (1 - b) * _powf(b,2) + WHT_B * _powf(b,3)) * 1;
+
+return out;
+}
+
+DEFINE_UI_PARAMS(BLK_R, Black Red, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(BLK_G, Black Green, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(BLK_B, Black Blue, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(SHD_R, Shadow Red, DCTLUI_SLIDER_FLOAT, .333,  -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(SHD_G, Shadow Green, DCTLUI_SLIDER_FLOAT, .333,  -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(SHD_B, Shadow Blue, DCTLUI_SLIDER_FLOAT, .333,  -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(HIG_R, Highlight Red, DCTLUI_SLIDER_FLOAT, .666,  -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(HIG_G, Highlight Green, DCTLUI_SLIDER_FLOAT, .666,  -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(HIG_B, Highlight Blue, DCTLUI_SLIDER_FLOAT, .666,  -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(WHT_R, White Red, DCTLUI_SLIDER_FLOAT, 1.0,  -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(WHT_G, White Green, DCTLUI_SLIDER_FLOAT, 1.0,  -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(WHT_B, White Blue, DCTLUI_SLIDER_FLOAT, 1.0,  -1.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    
+    float3 in = {p_R, p_G, p_B};
+    
+    float width = (float)p_Width;
+    float height = (float)p_Height;
+    float X = (float)p_X;
+    float Y = height - (float)p_Y;
+    float3 ramp = {X / width, X / width, X / width};
+    
+    float3 out;
+    
+	if(in.x < 0.0)
+	{
+	in.x = 0.0;
+	}
+
+	if(in.y < 0.0)
+	{
+	in.y = 0.0;
+	}
+
+	if(in.z < 0.0)
+	{
+	in.z = 0.0;
+	}
+    out = apply_bezier(in, BLK_R, SHD_R, HIG_R, WHT_R, BLK_G, SHD_G, HIG_G, WHT_G, BLK_B, SHD_B, HIG_B, WHT_B);
+
+    ramp = apply_bezier(ramp, BLK_R, SHD_R, HIG_R, WHT_R, BLK_G, SHD_G, HIG_G, WHT_G, BLK_B, SHD_B, HIG_B, WHT_B);
+
+
+    if (opt_showcurve == 1)
+
+    {
+
+    float overlayR = ramp.x >= (Y - 5.0f) / height && ramp.x <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayG = ramp.y >= (Y - 5.0f) / height && ramp.y <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayB = ramp.z >= (Y - 5.0f) / height && ramp.z <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+
+    out.x = overlayR == 0.0f ? out.x : overlayR;
+    out.y = overlayG == 0.0f ? out.y : overlayG;
+    out.z = overlayB == 0.0f ? out.z : overlayB;
+
+    }
+
+    return out;
+}

@@ -1,0 +1,83 @@
+//Adaptation from Nick's Shaw DCTL "Gamut_Compression", for a DWG Pipeline
+//I didn't chance any formula, just take away the ACES components and replace by DWG and remove the params for purpose of practicity
+//DaVinci WideGammut Linear roundtrip
+__DEVICE__ float di_lin(float in)
+{
+float out;
+float DI_LOG_CUT =0.02740668f;
+float DI_C = 0.07329248f;
+float DI_B = 7.0f;
+float DI_A = 0.0075f;
+float DI_M = 10.44426855f;
+if(in <= DI_LOG_CUT){
+out = in/DI_M;
+}
+else{
+out = _powf(2.0f, (in / DI_C) - DI_B)- DI_A;
+}
+return out;
+}
+__DEVICE__ float lin_di(float in)
+{
+float out;
+float DI_LIN_CUT = 0.00262409f;
+float DI_C = 0.07329248f;
+float DI_B = 7.0f;
+float DI_A = 0.0075f;
+float DI_M = 10.44426855f;
+if(in <= DI_LIN_CUT){
+out = in * DI_M;
+}
+else{
+out = (_log2f(in + DI_A) + DI_B) * DI_C;
+}
+return out;
+}
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    float3 result;
+
+    float r = p_R;
+    float g = p_G;
+    float b = p_B;
+    
+//linearise
+    r = di_lin(r);
+    g = di_lin(g);
+    b = di_lin(b);
+   
+    float3 lim;
+    lim.x = 1.0f/max(0.00001f, min(1.0f/0.815f, 1.147f));
+    lim.y = 1.0f/max(0.00001f, min(1.0f/0.803, 1.264f));
+    lim.z = 1.0f/max(0.00001f, min(1.0f/0.880, 1.312f));
+
+    float ach = _fmaxf(r, _fmaxf(g, b));
+
+    float d_r = ach == 0.0f ? 0.0f : _fabs(r-ach) / ach;
+    float d_g = ach == 0.0f ? 0.0f : _fabs(g-ach) / ach;
+    float d_b = ach == 0.0f ? 0.0f : _fabs(b-ach) / ach;
+
+    float cd_r, cd_g, cd_b;
+
+    cd_r = d_r > 0.815f ? 0.815f+(-1/((d_r-0.815f)/(lim.x-0.815f)+1)+1)*(lim.x-0.815f) : d_r;
+    cd_g = d_g > 0.803f ? 0.803f+(-1/((d_g-0.803f)/(lim.y-0.803f)+1)+1)*(lim.y-0.803f) : d_g;
+    cd_b = d_b > 0.880f ? 0.880f+(-1/((d_b-0.880f)/(lim.z-0.880f)+1)+1)*(lim.z-0.880f) : d_b;
+
+
+    // scale each color component relative to achromatic axis by gamut compression factor
+    float c_r, c_g, c_b;
+    c_r = ach-cd_r*ach;
+    c_g = ach-cd_g*ach;
+    c_b = ach-cd_b*ach;
+
+    {
+    result = make_float3(c_r, c_g, c_b);
+    }
+    {
+    result.x = lin_di(result.x);
+    result.y = lin_di(result.y);
+    result.z = lin_di(result.z);
+    }
+    return result;
+}

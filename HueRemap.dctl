@@ -1,0 +1,124 @@
+__DEVICE__ float3 rgb_sph(float3 rgb) {
+    const float rtr = rgb.x * 0.81649658f + rgb.y * -0.40824829f + rgb.z * -0.40824829f;
+    const float rtg = rgb.x * 0.0f + rgb.y * 0.70710678f + rgb.z * -0.70710678f;
+    const float rtb = rgb.x * 0.57735027f + rgb.y * 0.57735027f + rgb.z * 0.57735027f;
+
+    const float art = _atan2f(rtg, rtr);
+
+    const float sphr = _sqrtf(rtr*rtr + rtg*rtg + rtb*rtb);
+    const float spht = art < 0.0f ? art + 2.0f * 3.141592653589f : art;
+    const float sphp = _atan2f(_sqrtf(rtr*rtr + rtg*rtg), rtb);
+
+    return make_float3(
+        sphr * 0.5773502691896258f,
+        spht * 0.15915494309189535f,
+        sphp * 1.0467733744265997f
+    );
+}
+
+__DEVICE__ float3 sph_rgb(float3 sph) {
+    sph.x *= 1.7320508075688772f;
+    sph.y *= 6.283185307179586f;
+    sph.z *= 0.9553166181245093f;
+
+    const float ctr = sph.x * _sinf(sph.z) * _cosf(sph.y);
+    const float ctg = sph.x * _sinf(sph.z) * _sinf(sph.y);
+    const float ctb = sph.x * _cosf(sph.z);
+
+    return make_float3(
+        ctr * 0.81649658f + ctg * 0.0f + ctb * 0.57735027f,
+        ctr * -0.40824829f + ctg * 0.70710678f + ctb * 0.57735027f,
+        ctr * -0.40824829f + ctg * -0.70710678f + ctb * 0.57735027f
+    );
+}
+
+
+DEFINE_UI_PARAMS(r_shift, Red , DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.0001)
+DEFINE_UI_PARAMS(g_shift, Green , DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.0001)
+DEFINE_UI_PARAMS(b_shift, Blue , DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.0001)
+DEFINE_UI_PARAMS(c_shift, Cyan , DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.0001)
+DEFINE_UI_PARAMS(m_shift, Magenta , DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.0001)
+DEFINE_UI_PARAMS(y_shift, Yellow , DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.0001)
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+
+//Initialize variables
+
+const float3 rgb = make_float3(p_R, p_G, p_B);
+
+float3 sph = rgb_sph(rgb);
+
+float r = sph.x;
+float g = sph.y;
+float b = sph.z;
+
+const float pi = 3.14159265359f;
+const float r_pos = 0.0f;
+const float y_pos = 0.1666f;
+const float g_pos = 0.333f;
+const float c_pos = 0.5f;
+const float b_pos = 0.666f;
+const float m_pos = 0.8333f;
+const float r_pos2 = 1.0f;
+
+ float hue=1;
+
+//Operação Vermelho
+if ( (g>= r_pos) && (g < y_pos) ){
+	
+
+	hue =(_cosf(((sph.y-r_pos)/(y_pos-r_pos))*pi)-1.0f)*0.5f*(r_shift-y_shift)+r_shift;	
+}
+//Operação Amarelo
+if ( (g >= y_pos) && (g < g_pos) ){
+	
+	hue =(_cosf(((sph.y-y_pos)/(g_pos-y_pos))*pi)-1.0f)*0.5f*(y_shift-g_shift)+y_shift;	
+}
+//Operação Verde
+if ( (g >= g_pos) && (g < c_pos) ){
+	
+	hue =(_cosf(((sph.y-g_pos)/(c_pos-g_pos))*pi)-1.0f)*0.5f*(g_shift-c_shift)+g_shift;
+
+}
+//Operação Ciano
+if ((g >= c_pos) && (g < b_pos)){
+	
+	hue=(_cosf(((sph.y-c_pos)/(b_pos-c_pos))*pi)-1.0f)*0.5f*(c_shift-b_shift)+c_shift;
+}
+//Operação Azul
+if ((g >= b_pos) && (g < m_pos)){
+	
+	hue = (_cosf(((sph.y-b_pos)/(m_pos-b_pos))*pi)-1.0f)*0.5f*( b_shift - m_shift)+b_shift;
+}
+//Operação Magenta
+if ((g >= m_pos) && (g <= r_pos2)){
+	
+	hue = (_cosf(((sph.y-m_pos)/(r_pos2-m_pos))*pi)-1.0f)*0.5f*(m_shift-r_shift)+m_shift;
+}
+
+if(g < r_pos){
+hue=r_shift;
+}
+ 
+if(g>r_pos2){
+hue=r_shift;
+
+}
+
+	g=g+(hue-1.0f)/6.0f;
+
+if(g<0){
+	g=g+1.0f;
+}
+if(g>1){
+	g=g-1.0f;
+}
+
+
+float3 spherical = make_float3(r,g,b);
+
+float3 out = sph_rgb(spherical);
+
+return out;
+}

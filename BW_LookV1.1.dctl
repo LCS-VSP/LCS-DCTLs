@@ -1,0 +1,299 @@
+//FORMULAS PARA LOG-LINEAR-LOG
+//ACES
+__DEVICE__ float cct_lin(float in)
+{
+float out;
+float Y_BRK = 0.155251141552511f;
+float A = 10.5402377416545f;
+float B = 0.0729055341958355f;
+if (in > Y_BRK){
+out = _powf( 2.0f, in * 17.52f - 9.72f);
+}
+else{
+out = (in - B) / A;
+}
+return out;
+}
+__DEVICE__ float lin_cct(float in)
+{
+float out;
+float X_BRK = 0.0078125f;
+float A = 10.5402377416545f;
+float B = 0.0729055341958355f;
+if (in <= X_BRK){
+out = A * in + B;
+}
+else{
+out = (_log2f(in) + 9.72f) / 17.52f;
+}
+return out;
+}
+//DaVinci WideGammut
+__DEVICE__ float di_lin(float in)
+{
+float out;
+float DI_LOG_CUT =0.02740668f;
+float DI_C = 0.07329248f;
+float DI_B = 7.0f;
+float DI_A = 0.0075f;
+float DI_M = 10.44426855f;
+if(in <= DI_LOG_CUT){
+out = in/DI_M;
+}
+else{
+out = _powf(2.0f, (in / DI_C) - DI_B)- DI_A;
+}
+return out;
+}
+__DEVICE__ float lin_di(float in)
+{
+float out;
+float DI_LIN_CUT = 0.00262409f;
+float DI_C = 0.07329248f;
+float DI_B = 7.0f;
+float DI_A = 0.0075f;
+float DI_M = 10.44426855f;
+if(in <= DI_LIN_CUT){
+out = in * DI_M;
+}
+else{
+out = (_log2f(in + DI_A) + DI_B) * DI_C;
+}
+return out;
+}
+//FUNÇÕES PARA CONTRASTE
+__DEVICE__ float apply_white(float in, float n, float threshold)
+    {
+    float out;
+    float pivot = .18f*_powf(2,threshold);
+    if(in>=pivot)
+    {   
+    float limit_white = .18f*_powf(2,n);
+    float a = (limit_white - pivot) / (_powf(2,n+10.0f) - pivot);
+    float b =_powf(a,-1 * 1.0f) - 1;
+    float s = (_powf(2,n+10.0f) - pivot) / _powf(b,1/1.0f);
+    float c = 1 + ((in - pivot) / s);
+    float d = _powf(c,1.0f);
+    out = pivot + s *((in - pivot) / s) / _powf(d,1/1.0f);
+    }
+    else{
+    out=in;
+    }
+    return out;
+    }
+__DEVICE__ float apply_blackpoint(float in, float limit_black, float pivot, float threshold)
+    {
+    float out;
+
+    pivot = pivot - threshold;
+    if(in<pivot)
+    {
+    in = 1-in;
+    pivot= 1-pivot;
+    float a = (( -1.0*(limit_black - .999)  - pivot) / (1 - pivot));
+    float b =_powf(a,-1 * 1.0f) - 1;
+    float s = (1 - pivot) / _powf(b,1/1.0f);
+    float c = 1 + ((in - pivot) / s);
+    float d = _powf(c,1.0f);
+    out = pivot + s *((in - pivot) / s) / _powf(d,1/1.0f);
+    out = 1-out;
+    }
+    else{
+    out = in;
+    }
+    return out;
+    }
+__DEVICE__ float apply_contrast(float in, float contrast, float pivot)
+    {
+    float out;
+
+    if(in<=pivot){
+    out = _powf((in/pivot), contrast) *pivot;
+    }
+    else{
+    in = 1-in;
+    pivot= 1-pivot;
+    out = _powf((in/pivot), contrast) *pivot;
+    out = 1-out;
+    }
+    return out;
+    }
+
+DEFINE_UI_PARAMS(contrast, Contrast, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(trasferfunction, Transfer Function, DCTLUI_COMBO_BOX, 0, { dwg, aces}, { DaVinci Intermediate, Aces cct})
+DEFINE_UI_PARAMS(limit_white, White Point-Stops, DCTLUI_SLIDER_FLOAT, 12.0, 0.0, 12.0, 0.1)
+DEFINE_UI_PARAMS(threshold, Shoulder Threshold-Stops, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 12.0, 0.1)
+DEFINE_UI_PARAMS(limit_black, Black Point, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(threshold_b, Toe Threshold, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.1))
+DEFINE_UI_PARAMS(contrast_R, Contrast Red, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(contrast_G, Contrast Green, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(contrast_B, Contrast Blue, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.1)
+DEFINE_UI_PARAMS(r_weight, Red Weight, DCTLUI_SLIDER_FLOAT, .299, .0, 1, .001)
+DEFINE_UI_PARAMS(g_weight, Green Weight, DCTLUI_SLIDER_FLOAT, .587, .0, 1, .001)
+DEFINE_UI_PARAMS(b_weight, Blue Weight, DCTLUI_SLIDER_FLOAT, .114, .0, 1, .001)
+DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(bypass, Bypass Adjustments, DCTLUI_CHECK_BOX, 0)
+
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+
+    float3 in = {p_R, p_G, p_B};
+    float width = (float)p_Width;
+    float height = (float)p_Height;
+    float X = (float)p_X;
+    float Y = height - (float)p_Y;
+    float3 ramp = {X / width, X / width, X / width};
+    float3 out;
+    
+    if(in.x>1.0f){
+    in.x=1.0f;
+    }
+    if(in.y>1.0f){
+    in.y=1.0f;
+    }
+    if(in.z>1.0f){
+    in.z=1.0f;
+    }
+    if(in.x<0.0){
+    in.x=0.0;
+    }
+    if(in.y<0.0){
+    in.y=0.0;
+    }
+    if(in.z<0.0){
+    in.z=0.0;
+    }
+
+//ACES
+    if(trasferfunction == aces){
+    float pivot = .414;
+    {
+    out.x = apply_contrast(in.x, contrast, pivot);
+    out.y = apply_contrast(in.y, contrast, pivot);
+    out.z = apply_contrast(in.z, contrast, pivot);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot); 
+    }
+    {
+    out.x = apply_contrast(out.x, contrast_R, pivot);
+    out.y = apply_contrast(out.y, contrast_G, pivot);
+    out.z = apply_contrast(out.z, contrast_B, pivot);
+    ramp.x = apply_contrast(ramp.x, contrast_R, pivot);
+    ramp.y = apply_contrast(ramp.y, contrast_G, pivot);
+    ramp.z = apply_contrast(ramp.z, contrast_B, pivot);
+    }
+    {
+    out.x = cct_lin(out.x);
+    out.y = cct_lin(out.y);
+    out.z = cct_lin(out.z);
+    ramp.x = cct_lin(ramp.x);
+    ramp.y = cct_lin(ramp.y);
+    ramp.z = cct_lin(ramp.z);
+    }
+    {
+    out.x = apply_white(out.x, limit_white,threshold);
+    out.y = apply_white(out.y, limit_white,threshold);
+    out.z = apply_white(out.z, limit_white,threshold);
+    ramp.x = apply_white(ramp.x, limit_white,threshold);
+    ramp.y = apply_white(ramp.y, limit_white,threshold);
+    ramp.z = apply_white(ramp.z, limit_white,threshold);
+    }
+    {
+    out.x = lin_cct(out.x);
+    out.y = lin_cct(out.y);
+    out.z = lin_cct(out.z);
+    ramp.x = lin_cct(ramp.x);
+    ramp.y = lin_cct(ramp.y);
+    ramp.z = lin_cct(ramp.z);
+    }
+    {
+    out.x = apply_blackpoint(out.x, limit_black, pivot, threshold_b);
+    out.y = apply_blackpoint(out.y, limit_black, pivot, threshold_b);
+    out.z = apply_blackpoint(out.z, limit_black, pivot, threshold_b);
+    ramp.x = apply_blackpoint(ramp.x, limit_black, pivot, threshold_b);
+    ramp.y = apply_blackpoint(ramp.y, limit_black, pivot, threshold_b);
+    ramp.z = apply_blackpoint(ramp.z, limit_black, pivot, threshold_b);
+    }
+    }
+//DaVinci Intermediate
+    if(trasferfunction == dwg){
+    float pivot = .336;
+    {
+    out.x = apply_contrast(in.x, contrast, pivot);
+    out.y = apply_contrast(in.y, contrast, pivot);
+    out.z = apply_contrast(in.z, contrast, pivot);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot); 
+    }
+    {
+    out.x = apply_contrast(out.x, contrast_R, pivot);
+    out.y = apply_contrast(out.y, contrast_G, pivot);
+    out.z = apply_contrast(out.z, contrast_B, pivot);
+    ramp.x = apply_contrast(ramp.x, contrast_R, pivot);
+    ramp.y = apply_contrast(ramp.y, contrast_G, pivot);
+    ramp.z = apply_contrast(ramp.z, contrast_B, pivot);
+    }
+    {
+    out.x = di_lin(out.x);
+    out.y = di_lin(out.y);
+    out.z = di_lin(out.z);
+    ramp.x = di_lin(ramp.x);
+    ramp.y = di_lin(ramp.y);
+    ramp.z = di_lin(ramp.z);
+    }
+    {
+    out.x = apply_white(out.x, limit_white,threshold);
+    out.y = apply_white(out.y, limit_white,threshold);
+    out.z = apply_white(out.z, limit_white,threshold);
+    ramp.x = apply_white(ramp.x, limit_white,threshold);
+    ramp.y = apply_white(ramp.y, limit_white,threshold);
+    ramp.z = apply_white(ramp.z, limit_white,threshold);
+    }
+    {
+    out.x = lin_di(out.x);
+    out.y = lin_di(out.y);
+    out.z = lin_di(out.z);
+    ramp.x = lin_di(ramp.x);
+    ramp.y = lin_di(ramp.y);
+    ramp.z = lin_di(ramp.z);
+    }
+    {
+    out.x = apply_blackpoint(out.x, limit_black, pivot, threshold_b);
+    out.y = apply_blackpoint(out.y, limit_black, pivot, threshold_b);
+    out.z = apply_blackpoint(out.z, limit_black, pivot, threshold_b);
+    ramp.x = apply_blackpoint(ramp.x, limit_black, pivot, threshold_b);
+    ramp.y = apply_blackpoint(ramp.y, limit_black, pivot, threshold_b);
+    ramp.z = apply_blackpoint(ramp.z, limit_black, pivot, threshold_b);
+    }
+    }
+
+//Parte PB
+
+    float get_luma = _sqrtf(r_weight*_powf(out.x,2) + g_weight*_powf(out.y,2)+b_weight*_powf(out.z,2));
+    {
+    out.x = ((out.x-get_luma)*.0f)+get_luma;
+    out.y = ((out.y-get_luma)*.0f)+get_luma;
+    out.z = ((out.z-get_luma)*.0f)+get_luma;
+    }
+    if (opt_showcurve == 1)
+    {
+    float overlayR = ramp.x >= (Y - 5.0f) / height && ramp.x <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayG = ramp.y >= (Y - 5.0f) / height && ramp.y <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayB = ramp.z >= (Y - 5.0f) / height && ramp.z <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    out.x = overlayR == 0.0f ? out.x : overlayR;
+    out.y = overlayG == 0.0f ? out.y : overlayG;
+    out.z = overlayB == 0.0f ? out.z : overlayB;
+    }
+    if( bypass == 1){
+    float get_luma = _sqrtf(.299f*_powf(in.x,2) + .587f*_powf(in.y,2)+.114*_powf(in.z,2));
+    {
+    out.x = ((in.x-get_luma)*.0f)+get_luma;
+    out.y = ((in.y-get_luma)*.0f)+get_luma;
+    out.z = ((in.z-get_luma)*.0f)+get_luma;
+    }
+    }
+    return out;
+}

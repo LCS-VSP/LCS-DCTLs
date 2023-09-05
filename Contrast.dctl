@@ -1,0 +1,142 @@
+//FUNÇÕES PARA CONTRASTE
+__DEVICE__ float apply_contrast(float in, float contrast, float pivot)
+	{
+	float out;
+	if(in<=pivot){
+	out = _powf((in/pivot), contrast) *pivot;
+	}
+	else{
+	in = 1-in;
+	pivot= 1-pivot;
+	out = _powf((in/pivot), contrast) *pivot;
+	out = 1-out;
+	}
+	return out;
+	}
+__DEVICE__ float apply_L_contrast(float in, float contrast, float pivot)
+	{
+	float out;
+	out = (in - pivot) * contrast + pivot;
+	return out;
+	}
+
+DEFINE_UI_PARAMS(contrast, Contrast, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 2.0, 0.001)
+DEFINE_UI_PARAMS(pivot_offset, Pivot Offset, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.1)
+DEFINE_UI_PARAMS(mixer, Preserve Sat, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(rolloff, Roll Off, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(trasferfunction, Transfer Function, DCTLUI_COMBO_BOX, 0, { dwg, aces, logc, logc4, red }, { DaVinci Intermediate, Aces cct, Log-C3, Log-C4,Log3G10})
+DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(opt_showramp, Show Ramp, DCTLUI_CHECK_BOX, 0)
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+
+    float3 in = {p_R, p_G, p_B};
+    float width = (float)p_Width;
+    float height = (float)p_Height;
+    float X = (float)p_X;
+    float Y = height - (float)p_Y;
+    float3 ramp = {X / width, X / width, X / width};
+    float3 out;
+    float get_luma;
+
+    if(in.x<0.0f){
+    in.x=0.0f;
+    }
+    if(in.y<0.0f){
+    in.y=0.0f;
+    }
+    if(in.z<0.0f){
+    in.z=0.0f;
+    }
+    if(in.x>1.0f){
+    in.x=1.0f;
+    }
+    if(in.y>1.0f){
+    in.y=1.0f;
+    }
+    if(in.z>1.0f){
+    in.z=1.0f;
+    }
+
+    get_luma = (in.x + in.y + in.z)/3.f;
+
+
+//LogC3
+    if(trasferfunction == logc){
+    float pivot = .391+pivot_offset;
+    {
+    out.x = ((apply_contrast(get_luma, contrast,pivot) + (in.x - get_luma))*mixer + apply_contrast(in.x, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.x - get_luma))*mixer + apply_L_contrast(in.x, contrast,pivot)*(1-mixer))*(1-rolloff);
+    out.y = ((apply_contrast(get_luma, contrast,pivot) + (in.y - get_luma))*mixer + apply_contrast(in.y, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.y - get_luma))*mixer + apply_L_contrast(in.y, contrast,pivot)*(1-mixer))*(1-rolloff);
+    out.z = ((apply_contrast(get_luma, contrast,pivot) + (in.z - get_luma))*mixer + apply_contrast(in.z, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.z - get_luma))*mixer + apply_L_contrast(in.z, contrast,pivot)*(1-mixer))*(1-rolloff);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot)*rolloff+apply_L_contrast(ramp.x, contrast,pivot)*(1-rolloff);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot)*rolloff+apply_L_contrast(ramp.y, contrast,pivot)*(1-rolloff);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot)*rolloff+apply_L_contrast(ramp.z, contrast,pivot)*(1-rolloff);  
+    }    
+    }
+//LogC4
+    if(trasferfunction == logc4){
+    float pivot = .278+pivot_offset;
+    {
+    out.x = ((apply_contrast(get_luma, contrast,pivot) + (in.x - get_luma))*mixer + apply_contrast(in.x, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.x - get_luma))*mixer + apply_L_contrast(in.x, contrast,pivot)*(1-mixer))*(1-rolloff);
+    out.y = ((apply_contrast(get_luma, contrast,pivot) + (in.y - get_luma))*mixer + apply_contrast(in.y, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.y - get_luma))*mixer + apply_L_contrast(in.y, contrast,pivot)*(1-mixer))*(1-rolloff);
+    out.z = ((apply_contrast(get_luma, contrast,pivot) + (in.z - get_luma))*mixer + apply_contrast(in.z, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.z - get_luma))*mixer + apply_L_contrast(in.z, contrast,pivot)*(1-mixer))*(1-rolloff);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot)*rolloff+apply_L_contrast(ramp.x, contrast,pivot)*(1-rolloff);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot)*rolloff+apply_L_contrast(ramp.y, contrast,pivot)*(1-rolloff);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot)*rolloff+apply_L_contrast(ramp.z, contrast,pivot)*(1-rolloff);  
+    } 
+    }
+//ACES 
+    if(trasferfunction == aces){
+    float pivot = .414+pivot_offset;
+    {
+    out.x = ((apply_contrast(get_luma, contrast,pivot) + (in.x - get_luma))*mixer + apply_contrast(in.x, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.x - get_luma))*mixer + apply_L_contrast(in.x, contrast,pivot)*(1-mixer))*(1-rolloff);
+    out.y = ((apply_contrast(get_luma, contrast,pivot) + (in.y - get_luma))*mixer + apply_contrast(in.y, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.y - get_luma))*mixer + apply_L_contrast(in.y, contrast,pivot)*(1-mixer))*(1-rolloff);
+    out.z = ((apply_contrast(get_luma, contrast,pivot) + (in.z - get_luma))*mixer + apply_contrast(in.z, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.z - get_luma))*mixer + apply_L_contrast(in.z, contrast,pivot)*(1-mixer))*(1-rolloff);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot)*rolloff+apply_L_contrast(ramp.x, contrast,pivot)*(1-rolloff);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot)*rolloff+apply_L_contrast(ramp.y, contrast,pivot)*(1-rolloff);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot)*rolloff+apply_L_contrast(ramp.z, contrast,pivot)*(1-rolloff);  
+    } 
+    }
+//DaVinci Intermediate 
+    if(trasferfunction == dwg){
+    float pivot = .336+pivot_offset;
+    {
+    out.x = ((apply_contrast(get_luma, contrast,pivot) + (in.x - get_luma))*mixer + apply_contrast(in.x, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.x - get_luma))*mixer + apply_L_contrast(in.x, contrast,pivot)*(1-mixer))*(1-rolloff);
+    out.y = ((apply_contrast(get_luma, contrast,pivot) + (in.y - get_luma))*mixer + apply_contrast(in.y, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.y - get_luma))*mixer + apply_L_contrast(in.y, contrast,pivot)*(1-mixer))*(1-rolloff);
+    out.z = ((apply_contrast(get_luma, contrast,pivot) + (in.z - get_luma))*mixer + apply_contrast(in.z, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.z - get_luma))*mixer + apply_L_contrast(in.z, contrast,pivot)*(1-mixer))*(1-rolloff);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot)*rolloff+apply_L_contrast(ramp.x, contrast,pivot)*(1-rolloff);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot)*rolloff+apply_L_contrast(ramp.y, contrast,pivot)*(1-rolloff);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot)*rolloff+apply_L_contrast(ramp.z, contrast,pivot)*(1-rolloff);  
+    } 
+    }
+//Log3G10 
+    if(trasferfunction == red){
+    float pivot = .333+pivot_offset;
+    {
+    out.x = ((apply_contrast(get_luma, contrast,pivot) + (in.x - get_luma))*mixer + apply_contrast(in.x, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.x - get_luma))*mixer + apply_L_contrast(in.x, contrast,pivot)*(1-mixer))*(1-rolloff);
+    out.y = ((apply_contrast(get_luma, contrast,pivot) + (in.y - get_luma))*mixer + apply_contrast(in.y, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.y - get_luma))*mixer + apply_L_contrast(in.y, contrast,pivot)*(1-mixer))*(1-rolloff);
+    out.z = ((apply_contrast(get_luma, contrast,pivot) + (in.z - get_luma))*mixer + apply_contrast(in.z, contrast,pivot)*(1-mixer))*rolloff+((apply_L_contrast(get_luma, contrast,pivot) + (in.z - get_luma))*mixer + apply_L_contrast(in.z, contrast,pivot)*(1-mixer))*(1-rolloff);
+    ramp.x = apply_contrast(ramp.x, contrast,pivot)*rolloff+apply_L_contrast(ramp.x, contrast,pivot)*(1-rolloff);
+    ramp.y = apply_contrast(ramp.y, contrast,pivot)*rolloff+apply_L_contrast(ramp.y, contrast,pivot)*(1-rolloff);
+    ramp.z = apply_contrast(ramp.z, contrast,pivot)*rolloff+apply_L_contrast(ramp.z, contrast,pivot)*(1-rolloff);  
+    } 
+    }
+    
+    if (opt_showcurve == 1)
+    {
+    float overlayR = ramp.x >= (Y - 5.0f) / height && ramp.x <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayG = ramp.y >= (Y - 5.0f) / height && ramp.y <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    float overlayB = ramp.z >= (Y - 5.0f) / height && ramp.z <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+    out.x = overlayR == 0.0f ? out.x : overlayR;
+    out.y = overlayG == 0.0f ? out.y : overlayG;
+    out.z = overlayB == 0.0f ? out.z : overlayB;
+    }
+    if (opt_showramp == 1)
+    {
+    out.x = ramp.x;
+    out.y = ramp.y;
+    out.z = ramp.z;
+    }
+    return out;
+}
