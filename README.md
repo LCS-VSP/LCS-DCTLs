@@ -7,5 +7,4 @@ Não tenho objetivos financeiros com esses DCTLs, a ideia é permitir que pessoa
 Estou 100% aberto a opiniões, criticas e comentarios de todo tipo, espero que essas ferramentas possam ser uteis de alguma forma.
 
 
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-New tools avaiable, after a few months diving even more on the color science field, I've come up with severeal changes in this toolset, lot of improvements, hope you all enjoy
+
